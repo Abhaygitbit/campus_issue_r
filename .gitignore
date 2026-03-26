@@ -1,0 +1,33 @@
+# 🔹 Virtual Environments
+myenv/
+myenv2/
+env/
+venv/
+
+# 🔹 Python Cache
+__pycache__/
+*.pyc
+*.pyo
+
+# 🔹 Database
+*.db
+
+# 🔹 Environment variables (secrets)
+.env
+
+# 🔹 Uploads / user files
+uploads/
+
+# 🔹 Node modules (if any frontend tools used)
+node_modules/
+
+# 🔹 OS files
+.DS_Store
+Thumbs.db
+
+# 🔹 Logs
+*.log
+
+# 🔹 IDE files
+.vscode/
+.idea/
