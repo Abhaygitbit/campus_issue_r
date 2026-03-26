@@ -1,5 +1,5 @@
 // ── API base — change port if needed
-const API = "https://campus-issue-resolver-5u2w.onrender.com";
+const API = "https://campus-issue-resolver-5u2w.onrender.com/api";
 
 // ── State
 let token   = localStorage.getItem("cirs_token") || null;
