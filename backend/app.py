@@ -17,6 +17,8 @@ from werkzeug.utils import secure_filename
 from datetime import datetime, timedelta
 import os, random, string
 from urllib.parse import quote_plus
+from dotenv import load_dotenv
+load_dotenv()
 
 # ─────────────────────────────────────────────
 #  APP CONFIGURATION
