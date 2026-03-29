@@ -16,6 +16,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
 from datetime import datetime, timedelta
 import os, random, string
+from urllib.parse import quote_plus
 
 # ─────────────────────────────────────────────
 #  APP CONFIGURATION
@@ -26,9 +27,15 @@ CORS(app, resources={r"/api/*": {"origins": "*"}})
 # ── Database: SQLite by default (zero config!)
 # ── To use MySQL: change URI to mysql+pymysql://user:pass@host/dbname
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DB_PATH  = os.path.join(BASE_DIR, "cirs.db")
+DB_HOST = os.getenv("DB_HOST")
+DB_NAME = os.getenv("DB_NAME")
+DB_USER = os.getenv("DB_USER")
+DB_PASSWORD = os.getenv("DB_PASSWORD")
+DB_PORT = os.getenv("DB_PORT", "5432")
 
-app.config["SQLALCHEMY_DATABASE_URI"]        = "mysql+pymysql://sql12820964:mvbqhRkjX8@sql12.freesqldatabase.com/sql12820964"
+app.config["SQLALCHEMY_DATABASE_URI"] = (
+    f"postgresql://{DB_USER}:{quote_plus(DB_PASSWORD)}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
+)
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 app.config["JWT_SECRET_KEY"]                 = "CIRS_CDGI_SECRET_2025_CHANGE_IN_PROD"
 app.config["JWT_ACCESS_TOKEN_EXPIRES"]       = timedelta(days=7)
