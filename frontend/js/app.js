@@ -1,161 +1,119 @@
-// ── API base — change port if needed
-const API = "https://campus-issue-resolver-5u2w.onrender.com/api";
+/**
+ * CIRS v3 — All 6 enhancements
+ * 1. CDGI logo everywhere + college photo on login
+ * 2. Staff = limited menu (My Work only)
+ * 3. Photo viewer for admin/coordinator/faculty
+ * 4. Classic white loading screen with CDGI logo
+ * 5. Faculty sees ALL complaints + can mark resolved
+ * 6. Only admin can delete users
+ */
 
-// ── State
+const API = `${window.location.origin}/api`;
 let token   = localStorage.getItem("cirs_token") || null;
 let session = JSON.parse(localStorage.getItem("cirs_user") || "null");
 let section = "dashboard";
 
-/* 
-   API HELPER
-*/
+// ── CDGI Logo SVG (matches AccSoft style) ──
+const CDGI_LOGO = `🏛️`;
+
+/* ══════════════════════════════
+   API
+══════════════════════════════ */
 async function api(endpoint, method = "GET", body = null, formData = false) {
-  const opts = {
-    method,
-    headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) }
-  };
-  if (body && !formData) {
-    opts.headers["Content-Type"] = "application/json";
-    opts.body = JSON.stringify(body);
-  }
-  if (body && formData) {
-    opts.body = body; // FormData object
-  }
+  const opts = { method, headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) } };
+  if (body && !formData) { opts.headers["Content-Type"] = "application/json"; opts.body = JSON.stringify(body); }
+  if (body && formData)  { opts.body = body; }
   try {
     const res  = await fetch(`${API}/${endpoint}`, opts);
     const data = await res.json();
-    if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+    if (!res.ok) throw new Error(data.error || `Error ${res.status}`);
     return data;
-  } catch (err) {
-    throw err;
-  }
+  } catch(e) { throw e; }
 }
 
-/* 
-   PARTICLES CANVAS
- */
-function initParticles() {
-  const canvas = document.getElementById("particles-canvas");
-  if (!canvas) return;
-  const ctx = canvas.getContext("2d");
-  let W = canvas.width  = window.innerWidth;
-  let H = canvas.height = window.innerHeight;
-  window.addEventListener("resize", () => {
-    W = canvas.width  = window.innerWidth;
-    H = canvas.height = window.innerHeight;
-  });
-  const pts = Array.from({ length: 60 }, () => ({
-    x: Math.random() * W, y: Math.random() * H,
-    r: Math.random() * 1.4 + 0.3,
-    vx: (Math.random() - 0.5) * 0.3,
-    vy: -Math.random() * 0.4 - 0.1,
-    a: Math.random() * 0.5 + 0.1,
-    c: ["#388bfd","#39d353","#bc8cff","#0dcaf0"][Math.floor(Math.random()*4)]
-  }));
-  function draw() {
-    ctx.clearRect(0, 0, W, H);
-    pts.forEach(p => {
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-      ctx.fillStyle = p.c + Math.round(p.a * 255).toString(16).padStart(2,"0");
-      ctx.fill();
-      p.x += p.vx; p.y += p.vy;
-      if (p.y < -5) { p.y = H + 5; p.x = Math.random() * W; }
-      if (p.x < 0 || p.x > W) p.vx *= -1;
-    });
-    requestAnimationFrame(draw);
-  }
-  draw();
-}
-
-/*
+/* ══════════════════════════════
    TOAST
-*/
+══════════════════════════════ */
 function toast(msg, type = "ok") {
-  const c  = document.getElementById("toasts");
+  const c = document.getElementById("toasts");
   if (!c) return;
-  const t  = document.createElement("div");
-  const ico = type === "ok" ? "✅" : type === "err" ? "❌" : "ℹ️";
+  const t = document.createElement("div");
   t.className = `toast toast-${type}`;
-  t.innerHTML = `<span class="toast-ico">${ico}</span><span>${msg}</span>`;
+  t.innerHTML = `<span class="toast-ico">${type==="ok"?"✅":type==="err"?"❌":"ℹ️"}</span><span>${msg}</span>`;
   c.appendChild(t);
-  setTimeout(() => { t.style.opacity = "0"; t.style.transform = "translateX(110%)"; t.style.transition = "all .3s"; setTimeout(() => t.remove(), 300); }, 3500);
+  setTimeout(() => { t.style.opacity="0"; t.style.transform="translateX(110%)"; t.style.transition="all .3s"; setTimeout(()=>t.remove(),300); }, 3500);
 }
 
-/* ═══════════════════════════════════════
-   AUTH HELPERS
-═══════════════════════════════════════ */
-function saveSession(data) {
-  token   = data.token;
-  session = data.user;
-  localStorage.setItem("cirs_token", token);
-  localStorage.setItem("cirs_user",  JSON.stringify(session));
-}
-function clearSession() {
-  token = session = null;
-  localStorage.removeItem("cirs_token");
-  localStorage.removeItem("cirs_user");
-}
-function isAdmin()  { return session?.role === "admin"; }
-function isCoord()  { return session?.role === "coordinator"; }
-function canManage(){ return isAdmin() || isCoord(); }
-function initials(name) { return (name || "?").split(" ").map(w=>w[0]).join("").slice(0,2).toUpperCase(); }
+/* ══════════════════════════════
+   SESSION
+══════════════════════════════ */
+function saveSession(d) { token=d.token; session=d.user; localStorage.setItem("cirs_token",token); localStorage.setItem("cirs_user",JSON.stringify(session)); }
+function clearSession()  { token=session=null; localStorage.removeItem("cirs_token"); localStorage.removeItem("cirs_user"); }
 
-/* ═══════════════════════════════════════
-   ROUTER — main render
-═══════════════════════════════════════ */
+// Role helpers
+function isAdmin()   { return session?.role === "admin"; }
+function isCoord()   { return session?.role === "coordinator"; }
+function isFaculty() { return session?.role === "faculty"; }
+function isStaff()   { return session?.role === "staff"; }
+function isStudent() { return session?.role === "student"; }
+// Can manage = change status, priority
+function canManage() { return ["admin","coordinator","faculty"].includes(session?.role); }
+// Can see all complaints
+function canViewAll(){ return ["admin","coordinator","faculty"].includes(session?.role); }
+// Can delete users — ADMIN ONLY
+function canDeleteUsers() { return isAdmin(); }
+
+function initials(n) { return (n||"?").split(" ").map(w=>w[0]).join("").slice(0,2).toUpperCase(); }
+function validatePhone(p) { return /^\d{10}$/.test(p); }
+
+/* ══════════════════════════════
+   BOOT
+══════════════════════════════ */
 function boot() {
   if (session && token) renderApp();
-  else                   renderAuth("login");
+  else renderAuth("login");
 }
 
-/* ═══════════════════════════════════════
-   AUTH — LOGIN / REGISTER
-═══════════════════════════════════════ */
+/* ══════════════════════════════
+   AUTH — CDGI PORTAL (matches screenshot)
+══════════════════════════════ */
 function renderAuth(mode = "login") {
   document.getElementById("app").innerHTML = `
-    <canvas id="particles-canvas"></canvas>
-    <div class="auth-wrap a1">
-      <div class="auth-side">
-        <div class="auth-tagline">
-          Campus <span class="hi">Issues</span><br>
-          Reporting<br>System
+    <div class="auth-page">
+      <div class="auth-bg"></div>
+      <div class="auth-card a1">
+        <!-- Top bar like AccSoft -->
+        <div class="auth-card-topbar">
+          <div class="auth-topbar-icon">C</div>
+          <div class="auth-topbar-title">CDGI Campus Issues Portal</div>
         </div>
-        <p class="auth-desc">
-          A centralized, transparent digital platform for reporting and resolving
-          campus infrastructure issues — designed for CDGI Indore.
-        </p>
-        <div class="auth-feats">
-          <div class="auth-feat"><div class="feat-ico">🎫</div> Auto-generated unique Ticket IDs</div>
-          <div class="auth-feat"><div class="feat-ico">📡</div> Real-time status tracking & notifications</div>
-          <div class="auth-feat"><div class="feat-ico">🔐</div> Role-based access: Student · Coordinator · Admin</div>
-          <div class="auth-feat"><div class="feat-ico">📊</div> Analytics dashboard with live database data</div>
-          <div class="auth-feat"><div class="feat-ico">🐍</div> Python Flask + SQLite/MySQL backend</div>
+        <!-- CDGI Logo Section -->
+        <div class="auth-logo-section">
+          <div class="auth-cdgi-logo">${CDGI_LOGO}</div>
+          <div class="auth-cdgi-name">Chameli Devi Group of Institutions</div>
+          <div class="auth-cdgi-sub">Indore (M.P.) 452020 · Est. 1994</div>
         </div>
-      </div>
-      <div class="auth-form-side">
-        <div class="auth-form-box" id="auth-box">
+        <!-- Form -->
+        <div class="auth-form-section">
+          <div class="auth-tabs">
+            <button class="auth-tab ${mode==="login"?"active":""}" onclick="renderAuth('login')">Sign In</button>
+            <button class="auth-tab ${mode==="register"?"active":""}" onclick="renderAuth('register')">Register</button>
+          </div>
+          <div id="auth-alert"></div>
           ${mode === "login" ? loginForm() : registerForm()}
         </div>
       </div>
     </div>
     <div class="toasts" id="toasts"></div>
   `;
-  initParticles();
 }
 
 function loginForm() {
   return `
-    <div style="margin-bottom:28px;">
-      <div class="logo-mark" style="width:46px;height:46px;font-size:22px;margin-bottom:14px;">🏛️</div>
-      <div class="auth-form-title">Welcome back</div>
-      <p class="auth-form-sub">Sign in to your CDGI campus account</p>
-    </div>
-    <div id="auth-alert"></div>
     <div class="form-group">
-      <label class="label">Email Address <span class="req">*</span></label>
+      <label class="label">Email / User ID <span class="req">*</span></label>
       <div class="input-icon">
-        <span class="ico">📧</span>
+        <span class="ico">👤</span>
         <input id="l-email" class="input" type="email" placeholder="you@cdgi.edu.in" autocomplete="email">
       </div>
     </div>
@@ -166,26 +124,15 @@ function loginForm() {
         <button class="eye-btn" onclick="toggleEye('l-pass',this)" type="button">👁️</button>
       </div>
     </div>
-    <button class="btn btn-primary btn-full btn-lg" id="login-btn" onclick="doLogin()">
-      Sign In &nbsp;→
-    </button>
-    <div class="divider-text">or use demo account</div>
-    <div style="display:grid;gap:7px;">
-      <button class="btn btn-outline btn-sm" onclick="quickLogin('admin@cdgi.edu.in','admin123')">🔴 Admin — admin@cdgi.edu.in</button>
-    </div>
-    <p style="text-align:center;margin-top:20px;font-size:12.5px;color:var(--text-2);">
-      No account? <a href="#" onclick="renderAuth('register')" style="color:var(--blue-light);font-weight:600;">Create one →</a>
+    <button class="btn btn-primary btn-full btn-lg" id="login-btn" onclick="doLogin()">Login »</button>
+    <p style="text-align:center;margin-top:14px;font-size:13px;color:var(--text-2);">
+      New user? <a href="#" onclick="renderAuth('register')" style="color:var(--blue);font-weight:600;">SignUp (New User)</a>
     </p>
   `;
 }
 
 function registerForm() {
   return `
-    <div style="margin-bottom:24px;">
-      <div class="auth-form-title">Create Account</div>
-      <p class="auth-form-sub">Register your CDGI campus profile</p>
-    </div>
-    <div id="auth-alert"></div>
     <div class="form-row">
       <div class="form-group">
         <label class="label">Full Name <span class="req">*</span></label>
@@ -209,8 +156,10 @@ function registerForm() {
         </div>
       </div>
       <div class="form-group">
-        <label class="label">Phone</label>
-        <input id="r-phone" class="input" placeholder="10-digit number">
+        <label class="label">Phone (10 digits)</label>
+        <input id="r-phone" class="input" placeholder="9876543210" maxlength="10"
+          oninput="this.value=this.value.replace(/\D/g,'').slice(0,10)">
+        <span class="field-err" id="phone-err">Must be exactly 10 digits</span>
       </div>
     </div>
     <div class="form-row">
@@ -232,8 +181,8 @@ function registerForm() {
       </div>
     </div>
     <button class="btn btn-primary btn-full btn-lg" onclick="doRegister()">Create Account →</button>
-    <p style="text-align:center;margin-top:18px;font-size:12.5px;color:var(--text-2);">
-      Already registered? <a href="#" onclick="renderAuth('login')" style="color:var(--blue-light);font-weight:600;">Sign in →</a>
+    <p style="text-align:center;margin-top:14px;font-size:13px;color:var(--text-2);">
+      Already registered? <a href="#" onclick="renderAuth('login')" style="color:var(--blue);font-weight:600;">Sign in</a>
     </p>
   `;
 }
@@ -243,16 +192,13 @@ async function doLogin() {
   const pass  = document.getElementById("l-pass").value;
   const btn   = document.getElementById("login-btn");
   if (!email || !pass) { showAuthErr("Please fill all fields."); return; }
-  btn.disabled = true;
-  btn.innerHTML = `<span class="spin">⟳</span> Signing in…`;
+  btn.disabled = true; btn.innerHTML = `<span class="spin">⟳</span> Signing in…`;
   try {
-    const data = await api("login", "POST", { email, password: pass });
-    saveSession(data);
-    renderApp();
-  } catch (e) {
+    const d = await api("login","POST",{email, password:pass});
+    saveSession(d); renderApp();
+  } catch(e) {
     showAuthErr(e.message);
-    btn.disabled = false;
-    btn.innerHTML = "Sign In &nbsp;→";
+    btn.disabled = false; btn.innerHTML = "Login »";
   }
 }
 
@@ -264,81 +210,66 @@ async function doRegister() {
   const dept  = document.getElementById("r-dept").value;
   const role  = document.getElementById("r-role").value;
   const roll  = document.getElementById("r-roll").value.trim();
-  if (!name || !email || !pass) { showAuthErr("Name, email and password are required."); return; }
-  if (pass.length < 6)          { showAuthErr("Password must be at least 6 characters."); return; }
-  try {
-    const data = await api("register", "POST", { name, email, password: pass, phone, dept, role, roll_no: roll });
-    saveSession(data);
-    renderApp();
-    toast("Welcome to CIRS, " + name + "! 🎉", "ok");
-  } catch (e) {
-    showAuthErr(e.message);
+  if (!name||!email||!pass) { showAuthErr("Name, email and password are required."); return; }
+  if (pass.length < 6)      { showAuthErr("Password must be at least 6 characters."); return; }
+  if (phone && !validatePhone(phone)) {
+    document.getElementById("phone-err").classList.add("show");
+    showAuthErr("Phone must be exactly 10 digits.");
+    return;
   }
-}
-
-function quickLogin(email, pass) {
-  document.getElementById("l-email").value = email;
-  document.getElementById("l-pass").value  = pass;
-  doLogin();
+  document.getElementById("phone-err")?.classList.remove("show");
+  try {
+    const d = await api("register","POST",{name,email,password:pass,phone,dept,role,roll_no:roll});
+    saveSession(d); renderApp();
+    toast(`Welcome to CIRS, ${name}! 🎉`,"ok");
+  } catch(e) { showAuthErr(e.message); }
 }
 
 function showAuthErr(msg) {
   const el = document.getElementById("auth-alert");
   if (el) el.innerHTML = `<div class="alert alert-err"><span class="alert-ico">⚠️</span>${msg}</div>`;
 }
-
-function toggleEye(id, btn) {
+function toggleEye(id,btn) {
   const inp = document.getElementById(id);
-  inp.type  = inp.type === "password" ? "text" : "password";
-  btn.textContent = inp.type === "password" ? "👁️" : "🙈";
+  inp.type = inp.type==="password" ? "text" : "password";
+  btn.textContent = inp.type==="password" ? "👁️" : "🙈";
 }
 
-/* ═══════════════════════════════════════
-   MAIN APP SHELL
-═══════════════════════════════════════ */
+/* ══════════════════════════════
+   APP SHELL
+══════════════════════════════ */
 function renderApp() {
   if (!session) { renderAuth("login"); return; }
-  const manage = canManage();
-  document.getElementById("app").innerHTML = `
-    <canvas id="particles-canvas"></canvas>
-    <div class="shell">
 
-      <!-- SIDEBAR -->
+  // ── CHANGE 2: Staff sees limited menu ──
+  const staffLimited = isStaff();
+
+  document.getElementById("app").innerHTML = `
+    <div class="sidebar-overlay" id="sidebar-overlay" onclick="closeSidebar()"></div>
+    <div class="shell">
       <aside class="sidebar" id="sidebar">
         <div class="sidebar-head">
-          <div class="logo">
-            <div class="logo-mark">🏛️</div>
-            <div class="logo-text">
-              <div class="logo-name">CIRS</div>
-              <div class="logo-sub">CDGI · Indore</div>
+          <div class="sidebar-brand">
+            <div class="sidebar-cdgi-logo">${CDGI_LOGO}</div>
+            <div class="sidebar-brand-text">
+              <div class="s-name">CDGI · CIRS</div>
+              <div class="s-sub">Campus Portal</div>
             </div>
           </div>
         </div>
         <nav class="nav">
-          <div class="nav-group">
-            <div class="nav-section-label">Main</div>
-            <button class="nav-item active" data-s="dashboard" onclick="go('dashboard')">
-              <span class="nav-icon">📊</span> Dashboard
-            </button>
-            <button class="nav-item" data-s="report" onclick="go('report')">
+          ${staffLimited ? `
+          <!-- Staff sees only My Work -->
+          <div>
+            <div class="nav-section-label">My Work</div>
+            <button class="nav-item active" data-s="report" onclick="go('report')">
               <span class="nav-icon">✍️</span> Report Issue
             </button>
             <button class="nav-item" data-s="complaints" onclick="go('complaints')">
               <span class="nav-icon">🎫</span> My Complaints
             </button>
           </div>
-          ${manage ? `
-          <div class="nav-group">
-            <div class="nav-section-label">Management</div>
-            <button class="nav-item" data-s="manage" onclick="go('manage')">
-              <span class="nav-icon">⚙️</span> ${isAdmin() ? "Admin Panel" : "Coordinator"}
-              <span class="nav-badge" id="new-count" style="display:none">0</span>
-            </button>
-            ${isAdmin() ? `<button class="nav-item" data-s="users" onclick="go('users')">
-              <span class="nav-icon">👥</span> Users
-            </button>` : ""}
-          </div>` : ""}
-          <div class="nav-group">
+          <div>
             <div class="nav-section-label">Account</div>
             <button class="nav-item" data-s="profile" onclick="go('profile')">
               <span class="nav-icon">👤</span> Profile
@@ -346,10 +277,43 @@ function renderApp() {
             <button class="nav-item" onclick="logout()">
               <span class="nav-icon">🚪</span> Sign Out
             </button>
+          </div>` : `
+          <!-- Full menu for others -->
+          <div>
+            <div class="nav-section-label">Main Menu</div>
+            <button class="nav-item active" data-s="dashboard" onclick="go('dashboard')">
+              <span class="nav-icon">📊</span> Dashboard
+            </button>
+            <button class="nav-item" data-s="report" onclick="go('report')">
+              <span class="nav-icon">✍️</span> Report Issue
+            </button>
+            <button class="nav-item" data-s="complaints" onclick="go('complaints')">
+              <span class="nav-icon">🎫</span> ${canViewAll()?"All Complaints":"My Complaints"}
+            </button>
           </div>
+          ${canManage() ? `
+          <div>
+            <div class="nav-section-label">Management</div>
+            <button class="nav-item" data-s="manage" onclick="go('manage')">
+              <span class="nav-icon">⚙️</span> ${isAdmin()?"Admin Panel":isFaculty()?"Faculty Panel":"Coordinator"}
+              <span class="nav-badge" id="new-count" style="display:none">0</span>
+            </button>
+            ${(isAdmin()||isCoord()) ? `<button class="nav-item" data-s="users" onclick="go('users')">
+              <span class="nav-icon">👥</span> Users
+            </button>` : ""}
+          </div>` : ""}
+          <div>
+            <div class="nav-section-label">Account</div>
+            <button class="nav-item" data-s="profile" onclick="go('profile')">
+              <span class="nav-icon">👤</span> Profile
+            </button>
+            <button class="nav-item" onclick="logout()">
+              <span class="nav-icon">🚪</span> Sign Out
+            </button>
+          </div>`}
         </nav>
         <div class="sidebar-foot">
-          <div class="user-card">
+          <div class="user-card" onclick="go('profile')">
             <div class="avatar">${initials(session.name)}</div>
             <div class="user-info">
               <div class="u-name">${session.name}</div>
@@ -359,20 +323,19 @@ function renderApp() {
         </div>
       </aside>
 
-      <!-- MAIN -->
       <main class="main">
         <header class="topbar">
           <div class="topbar-l">
-            <button class="menu-btn" onclick="document.getElementById('sidebar').classList.toggle('open')">☰</button>
+            <button class="menu-btn" onclick="toggleSidebar()">☰</button>
             <div>
-              <div class="pg-title" id="pg-title">Dashboard</div>
-              <div class="pg-crumb">CDGI / <span id="pg-crumb">Overview</span></div>
+              <div class="pg-title" id="pg-title">${staffLimited?"Report Issue":"Dashboard"}</div>
+              <div class="pg-crumb">CDGI / <span id="pg-crumb">Campus Portal</span></div>
             </div>
           </div>
           <div class="topbar-r">
             <div style="position:relative;">
               <button class="icon-btn" id="notif-btn" onclick="toggleNotifDrop()">
-                🔔 <span class="dot-badge hidden" id="notif-dot"></span>
+                🔔<span class="dot-badge hidden" id="notif-dot"></span>
               </button>
               <div class="notif-drop" id="notif-drop">
                 <div class="notif-drop-head">
@@ -382,181 +345,152 @@ function renderApp() {
                 <div id="notif-list"><div class="notif-empty">Loading…</div></div>
               </div>
             </div>
-            <div class="avatar" style="cursor:pointer;" onclick="go('profile')" title="${session.name}">${initials(session.name)}</div>
+            <!-- CDGI logo in topbar -->
+            <div style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,var(--blue),var(--red-cdgi));display:flex;align-items:center;justify-content:center;font-size:16px;border:2px solid var(--border);" title="CDGI">🏛️</div>
+            <div class="avatar" style="cursor:pointer;" onclick="go('profile')">${initials(session.name)}</div>
           </div>
         </header>
         <div class="content" id="page-content"></div>
       </main>
-
     </div>
     <div class="overlay" id="overlay" onclick="closeModal()">
       <div class="modal" id="modal" onclick="event.stopPropagation()"></div>
     </div>
     <div class="toasts" id="toasts"></div>
   `;
-  initParticles();
-  go("dashboard");
+
+  // Default section
+  if (staffLimited) go("report");
+  else go("dashboard");
+
   loadNotifications();
-  // close notif on outside click
   document.addEventListener("click", e => {
-    const drop = document.getElementById("notif-drop");
-    const btn  = document.getElementById("notif-btn");
-    if (drop && btn && !drop.contains(e.target) && !btn.contains(e.target)) drop.classList.remove("open");
+    const d=document.getElementById("notif-drop"), b=document.getElementById("notif-btn");
+    if (d&&b&&!d.contains(e.target)&&!b.contains(e.target)) d.classList.remove("open");
   });
+}
+
+function toggleSidebar() {
+  document.getElementById("sidebar")?.classList.toggle("open");
+  document.getElementById("sidebar-overlay")?.classList.toggle("show");
+}
+function closeSidebar() {
+  document.getElementById("sidebar")?.classList.remove("open");
+  document.getElementById("sidebar-overlay")?.classList.remove("show");
 }
 
 function go(s) {
   section = s;
-  document.querySelectorAll(".nav-item").forEach(el => el.classList.toggle("active", el.dataset.s === s));
-  const titles = { dashboard:"Dashboard", report:"Report Issue", complaints:"My Complaints", manage:"Admin Panel", users:"Users", profile:"Profile" };
-  const el = document.getElementById("pg-title");
-  if (el) el.textContent = titles[s] || s;
+  document.querySelectorAll(".nav-item").forEach(el => el.classList.toggle("active", el.dataset.s===s));
+  const titles = {dashboard:"Dashboard",report:"Report Issue",complaints:canViewAll()?"All Complaints":"My Complaints",manage:isAdmin()?"Admin Panel":isFaculty()?"Faculty Panel":"Coordinator Panel",users:"Users",profile:"Profile"};
+  const pg = document.getElementById("pg-title");
+  if (pg) pg.textContent = titles[s] || s;
   const content = document.getElementById("page-content");
   if (!content) return;
   content.innerHTML = `<div style="text-align:center;padding:60px;color:var(--text-3);">Loading…</div>`;
-  const map = { dashboard: renderDashboard, report: renderReport, complaints: renderComplaints, manage: renderManage, users: renderUsers, profile: renderProfile };
+  closeSidebar();
+  const map = {dashboard:renderDashboard, report:renderReport, complaints:renderComplaints, manage:renderManage, users:renderUsers, profile:renderProfile};
   if (map[s]) map[s](content);
 }
 
-function logout() {
-  clearSession();
-  renderAuth("login");
-}
+function logout() { clearSession(); renderAuth("login"); }
 
-/* ═══════════════════════════════════════
+/* ══════════════════════════════
    DASHBOARD
-═══════════════════════════════════════ */
+══════════════════════════════ */
 async function renderDashboard(el) {
   try {
-    const stats = await api("stats");
-    const recent = await api("complaints?page=1");
-    const list  = (recent.data || []).slice(0, 6);
-
-    // update new-count badge
+    const [stats, recent] = await Promise.all([api("stats"), api("complaints")]);
+    const list  = (recent.data||[]).slice(0,6);
     const badge = document.getElementById("new-count");
-    if (badge && stats.new > 0) { badge.style.display = ""; badge.textContent = stats.new; }
-
-    const cats = stats.categories || {};
+    if (badge && stats.new > 0) { badge.style.display=""; badge.textContent=stats.new; }
+    const cats   = stats.categories || {};
     const maxCat = Math.max(...Object.values(cats), 1);
     const hr = new Date().getHours();
-    const greet = hr < 12 ? "morning" : hr < 17 ? "afternoon" : "evening";
+    const greet = hr<12?"morning":hr<17?"afternoon":"evening";
 
     el.innerHTML = `
       <div class="page-header a1">
         <h1>Good ${greet}, <span>${session.name.split(" ")[0]}</span> 👋</h1>
-        <p>${new Date().toLocaleDateString("en-IN",{weekday:"long",day:"numeric",month:"long",year:"numeric"})} — Campus live data from database</p>
+        <p>${new Date().toLocaleDateString("en-IN",{weekday:"long",day:"numeric",month:"long",year:"numeric"})}</p>
       </div>
-
       <div class="stats a2">
-        <div class="stat s-blue">
-          <div class="stat-top"><div class="stat-ico">🎫</div><span class="stat-delta up">Total</span></div>
-          <div class="stat-val">${stats.total}</div>
-          <div class="stat-label">Total Complaints</div>
-          <div class="stat-strip"><div class="stat-strip-fill" style="width:100%"></div></div>
-        </div>
-        <div class="stat s-teal">
-          <div class="stat-top"><div class="stat-ico">🆕</div><span class="stat-delta">${stats.new} pending</span></div>
-          <div class="stat-val">${stats.new}</div>
-          <div class="stat-label">New Issues</div>
-          <div class="stat-strip"><div class="stat-strip-fill" style="width:${stats.total ? (stats.new/stats.total*100).toFixed(0) : 0}%"></div></div>
-        </div>
-        <div class="stat s-yel">
-          <div class="stat-top"><div class="stat-ico">⏳</div><span class="stat-delta">${stats.in_progress} active</span></div>
-          <div class="stat-val">${stats.in_progress}</div>
-          <div class="stat-label">In Progress</div>
-          <div class="stat-strip"><div class="stat-strip-fill" style="width:${stats.total ? (stats.in_progress/stats.total*100).toFixed(0) : 0}%"></div></div>
-        </div>
-        <div class="stat s-green">
-          <div class="stat-top"><div class="stat-ico">✅</div><span class="stat-delta up">${stats.resolution_rate}% rate</span></div>
-          <div class="stat-val">${stats.resolved}</div>
-          <div class="stat-label">Resolved</div>
-          <div class="stat-strip"><div class="stat-strip-fill" style="width:${stats.resolution_rate}%"></div></div>
-        </div>
+        <div class="stat s-blue"><div class="stat-top"><div class="stat-ico">🎫</div><span class="stat-delta">Total</span></div><div class="stat-val">${stats.total}</div><div class="stat-label">Total Complaints</div><div class="stat-strip"><div class="stat-strip-fill" style="width:100%"></div></div></div>
+        <div class="stat s-teal"><div class="stat-top"><div class="stat-ico">🆕</div><span class="stat-delta">${stats.new}</span></div><div class="stat-val">${stats.new}</div><div class="stat-label">New</div><div class="stat-strip"><div class="stat-strip-fill" style="width:${stats.total?(stats.new/stats.total*100).toFixed(0):0}%"></div></div></div>
+        <div class="stat s-yel"><div class="stat-top"><div class="stat-ico">⏳</div><span class="stat-delta">${stats.in_progress}</span></div><div class="stat-val">${stats.in_progress}</div><div class="stat-label">In Progress</div><div class="stat-strip"><div class="stat-strip-fill" style="width:${stats.total?(stats.in_progress/stats.total*100).toFixed(0):0}%"></div></div></div>
+        <div class="stat s-green"><div class="stat-top"><div class="stat-ico">✅</div><span class="stat-delta up">${stats.resolution_rate}%</span></div><div class="stat-val">${stats.resolved}</div><div class="stat-label">Resolved</div><div class="stat-strip"><div class="stat-strip-fill" style="width:${stats.resolution_rate}%"></div></div></div>
       </div>
-
       <div class="two-col a3">
         <div class="card">
-          <div class="card-head"><span class="card-title">📈 Issues by Category</span><span class="text-sm text-2">Live data</span></div>
+          <div class="card-head"><span class="card-title">📈 By Category</span></div>
           <div class="card-body">
             ${Object.keys(cats).length ? `
             <div class="bar-chart">
-              ${Object.entries(cats).map(([cat,cnt]) => `
+              ${Object.entries(cats).map(([cat,cnt])=>`
                 <div class="bar-wrap">
                   <span class="bar-num">${cnt}</span>
                   <div class="bar-col" style="height:${Math.round(cnt/maxCat*110)+10}px"></div>
                   <span class="bar-lbl">${cat.slice(0,5).toUpperCase()}</span>
-                </div>
-              `).join("")}
-            </div>` : `<div class="tbl-empty">No complaints yet — be the first to report!</div>`}
+                </div>`).join("")}
+            </div>` : `<div class="tbl-empty">No data yet</div>`}
           </div>
         </div>
         <div class="card">
           <div class="card-head"><span class="card-title">🚀 Quick Actions</span></div>
           <div class="card-body" style="display:flex;flex-direction:column;gap:10px;">
-            <button class="btn btn-primary" onclick="go('report')" style="justify-content:flex-start;gap:12px;padding:14px 16px;">
-              <span style="font-size:20px;">✍️</span>
-              <div style="text-align:left;"><div>Report a New Issue</div><div style="font-size:11px;opacity:.7;font-weight:400;margin-top:2px;">Submit a campus complaint</div></div>
+            <button class="btn btn-primary" onclick="go('report')" style="justify-content:flex-start;gap:14px;padding:16px;">
+              <span style="font-size:22px;">✍️</span>
+              <div style="text-align:left;"><div>Report a New Issue</div><div style="font-size:12px;opacity:.75;font-weight:400;margin-top:2px;">Submit campus complaint</div></div>
             </button>
-            <button class="btn btn-outline" onclick="go('complaints')" style="justify-content:flex-start;gap:12px;padding:14px 16px;">
-              <span style="font-size:20px;">🎫</span>
-              <div style="text-align:left;"><div>Track My Complaints</div><div style="font-size:11px;opacity:.7;font-weight:400;margin-top:2px;">View real-time status</div></div>
+            <button class="btn btn-outline" onclick="go('complaints')" style="justify-content:flex-start;gap:14px;padding:16px;">
+              <span style="font-size:22px;">🎫</span>
+              <div style="text-align:left;"><div>${canViewAll()?"All Complaints":"My Complaints"}</div><div style="font-size:12px;opacity:.75;font-weight:400;margin-top:2px;">Track status in real-time</div></div>
             </button>
-            ${canManage() ? `
-            <button class="btn btn-outline" onclick="go('manage')" style="justify-content:flex-start;gap:12px;padding:14px 16px;">
-              <span style="font-size:20px;">⚙️</span>
-              <div style="text-align:left;"><div>Manage All Complaints</div><div style="font-size:11px;opacity:.7;font-weight:400;margin-top:2px;">${stats.new} new awaiting action</div></div>
-            </button>` : ""}
+            ${canManage()?`<button class="btn btn-outline" onclick="go('manage')" style="justify-content:flex-start;gap:14px;padding:16px;">
+              <span style="font-size:22px;">⚙️</span>
+              <div style="text-align:left;"><div>Manage Panel</div><div style="font-size:12px;opacity:.75;font-weight:400;margin-top:2px;">${stats.new} new awaiting</div></div>
+            </button>`:""}
           </div>
         </div>
       </div>
-
       <div class="card a4">
-        <div class="card-head">
-          <span class="card-title">🕐 Recent Activity</span>
-          <button class="btn btn-outline btn-sm" onclick="go('complaints')">View All</button>
-        </div>
+        <div class="card-head"><span class="card-title">🕐 Recent Activity</span><button class="btn btn-outline btn-sm" onclick="go('complaints')">View All</button></div>
         <div class="tbl-wrap">
           ${list.length ? `
           <table>
-            <thead><tr><th>Ticket</th><th>Issue Title</th><th>Category</th><th>Priority</th><th>Status</th><th>Date</th><th></th></tr></thead>
+            <thead><tr><th>Ticket</th><th>Title</th><th>${canViewAll()?"Reporter":"Category"}</th><th>Status</th><th>Date</th><th></th></tr></thead>
             <tbody>
-              ${list.map(c => `
+              ${list.map(c=>`
                 <tr>
-                  <td><span class="mono" style="color:var(--blue-light);font-size:11.5px;">${c.ticket_id}</span></td>
-                  <td style="font-weight:500;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${c.title}</td>
-                  <td><span class="cpill c-${c.category}">${c.category}</span></td>
-                  <td><span class="flex-c gap-8"><span class="pdot p-${c.priority}"></span>${c.priority}</span></td>
+                  <td><span class="mono" style="color:var(--blue);font-size:12px;font-weight:700;">${c.ticket_id}</span></td>
+                  <td style="font-weight:600;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${c.title}</td>
+                  <td>${canViewAll()?`<span class="text-sm text-2">${c.user_name}</span>`:`<span class="cpill c-${c.category}">${c.category}</span>`}</td>
                   <td>${statusBadge(c.status)}</td>
                   <td class="text-sm text-2">${c.created_at}</td>
                   <td><button class="btn btn-ghost btn-sm" onclick="viewTicket('${c.ticket_id}')">View →</button></td>
-                </tr>
-              `).join("")}
+                </tr>`).join("")}
             </tbody>
           </table>` : `
           <div class="tbl-empty">
-            <div style="font-size:36px;margin-bottom:10px;">📭</div>
+            <div style="font-size:40px;margin-bottom:12px;">📭</div>
             <div class="fw-7">No complaints yet</div>
-            <p style="margin-top:6px;">The database is empty. Submit the first campus complaint!</p>
-            <button class="btn btn-primary" onclick="go('report')" style="margin-top:16px;">Report an Issue →</button>
+            <button class="btn btn-primary" onclick="go('report')" style="margin-top:14px;">Report an Issue →</button>
           </div>`}
         </div>
-      </div>
-    `;
-  } catch(e) {
-    el.innerHTML = serverDownBanner();
-  }
+      </div>`;
+  } catch(e) { el.innerHTML = serverDownBanner(); }
 }
 
-/* ═══════════════════════════════════════
+/* ══════════════════════════════
    REPORT FORM
-═══════════════════════════════════════ */
+══════════════════════════════ */
 function renderReport(el) {
   el.innerHTML = `
     <div class="page-header a1">
       <h1>Report <span>New Issue</span></h1>
-      <p>Submit a campus complaint — saved directly to database with a unique Ticket ID</p>
+      <p>Submit a campus complaint — you'll receive an email confirmation</p>
     </div>
-    <div style="max-width:700px;">
+    <div style="max-width:720px;">
       <div class="card a2">
         <div class="card-head"><span class="card-title">🎫 Complaint Details</span></div>
         <div class="card-body">
@@ -580,12 +514,14 @@ function renderReport(el) {
               </select>
             </div>
             <div class="form-group">
-              <label class="label">Priority <span class="req">*</span></label>
+              <label class="label">Priority ${!canManage()?"<span style='color:var(--text-3);font-size:11px;font-weight:400;'>(set by admin)</span>":""}</label>
+              ${canManage() ? `
               <select id="r-priority" class="select">
-                <option value="low">🟢 Low — Minor inconvenience</option>
-                <option value="medium" selected>🟡 Medium — Affecting daily work</option>
-                <option value="high">🔴 High — Urgent attention needed</option>
-              </select>
+                <option value="low">🟢 Low</option>
+                <option value="medium" selected>🟡 Medium</option>
+                <option value="high">🔴 High — Urgent</option>
+              </select>` : `
+              <div class="input" style="background:var(--surface2);color:var(--text-3);cursor:not-allowed;">🟡 Medium — default</div>`}
             </div>
           </div>
           <div class="form-group">
@@ -594,10 +530,10 @@ function renderReport(el) {
           </div>
           <div class="form-group">
             <label class="label">Detailed Description <span class="req">*</span></label>
-            <textarea id="r-desc" class="textarea" rows="5" placeholder="Describe the issue: what happened, since when, how it's affecting you or others…"></textarea>
+            <textarea id="r-desc" class="textarea" rows="5" placeholder="Describe the issue in detail — what happened, since when, how it is affecting you…"></textarea>
           </div>
           <div class="form-group">
-            <label class="label">Attach Evidence Photo / Video (Optional)</label>
+            <label class="label">📸 Attach Evidence Photo / Video</label>
             <div class="file-zone" id="file-zone" onclick="document.getElementById('r-file').click()">
               <div class="file-zone-ico">📎</div>
               <div class="file-zone-txt"><strong>Click to browse</strong> or drag & drop</div>
@@ -606,139 +542,101 @@ function renderReport(el) {
             <input type="file" id="r-file" style="display:none" accept="image/*,video/*,.pdf" onchange="handleFile(event)">
             <div id="file-preview"></div>
           </div>
-          <div style="display:flex;gap:10px;margin-top:6px;">
-            <button class="btn btn-primary btn-lg" id="submit-btn" onclick="submitComplaint()" style="flex:1;">
-              🚀 Submit Complaint
-            </button>
-            <button class="btn btn-outline btn-lg" onclick="go('dashboard')">Cancel</button>
+          <div style="display:flex;gap:10px;margin-top:8px;">
+            <button class="btn btn-primary btn-lg" id="submit-btn" onclick="submitComplaint()" style="flex:1;">🚀 Submit Complaint</button>
+            <button class="btn btn-outline btn-lg" onclick="go(isStaff()?'complaints':'dashboard')">Cancel</button>
           </div>
         </div>
       </div>
-
       <div class="card a3" style="margin-top:16px;">
         <div class="card-body">
-          <p class="text-sm text-2" style="margin-bottom:14px;">Your complaint will go through this lifecycle:</p>
+          <p style="font-size:14px;color:var(--text-2);margin-bottom:14px;">Complaint lifecycle:</p>
           <div class="tracker">
-            ${["Submit","Assigned","In Progress","Resolved","Feedback"].map((l,i) => `
-              <div class="t-step ${i===0?'active':''}">
-                <div class="t-dot">${i===0?'1':i+1}</div>
+            ${["Submit","Assigned","In Progress","Resolved","Feedback"].map((l,i)=>`
+              <div class="t-step ${i===0?"active":""}">
+                <div class="t-dot">${i===0?"1":i+1}</div>
                 <div class="t-label">${l}</div>
-              </div>
-            `).join("")}
+              </div>`).join("")}
           </div>
-          <p class="text-sm text-3" style="text-align:center;margin-top:10px;">You'll receive a notification at every status change.</p>
+          <p style="text-align:center;font-size:13px;color:var(--text-3);margin-top:10px;">📧 You'll receive email updates at every stage.</p>
         </div>
       </div>
-    </div>
-  `;
+    </div>`;
 
-  // drag-drop
   const zone = document.getElementById("file-zone");
-  zone.addEventListener("dragover", e => { e.preventDefault(); zone.classList.add("over"); });
-  zone.addEventListener("dragleave", () => zone.classList.remove("over"));
-  zone.addEventListener("drop", e => {
-    e.preventDefault(); zone.classList.remove("over");
-    if (e.dataTransfer.files[0]) previewFile(e.dataTransfer.files[0]);
-  });
+  zone.addEventListener("dragover", e=>{e.preventDefault();zone.classList.add("over");});
+  zone.addEventListener("dragleave", ()=>zone.classList.remove("over"));
+  zone.addEventListener("drop", e=>{e.preventDefault();zone.classList.remove("over");if(e.dataTransfer.files[0])previewFile(e.dataTransfer.files[0]);});
 }
 
-function handleFile(e) { if (e.target.files[0]) previewFile(e.target.files[0]); }
+function handleFile(e) { if(e.target.files[0]) previewFile(e.target.files[0]); }
 function previewFile(file) {
   const el = document.getElementById("file-preview");
   if (!el) return;
-  el.innerHTML = `
-    <div class="file-preview">
-      <span>📎</span>
-      <span class="file-preview-name">${file.name}</span>
-      <span class="file-preview-size">${(file.size/1024).toFixed(1)} KB</span>
-      <button onclick="clearFile()" style="background:none;border:none;color:var(--text-3);font-size:18px;cursor:pointer;margin-left:auto;">×</button>
-    </div>`;
+  el.innerHTML = `<div class="file-preview"><span>📎</span><span class="file-preview-name">${file.name}</span><span class="file-preview-size">${(file.size/1024).toFixed(1)} KB</span><button onclick="clearFile()" style="background:none;border:none;color:var(--text-3);font-size:20px;cursor:pointer;margin-left:auto;">×</button></div>`;
   window._selectedFile = file;
 }
-function clearFile() {
-  document.getElementById("file-preview").innerHTML = "";
-  document.getElementById("r-file").value = "";
-  window._selectedFile = null;
-}
+function clearFile() { document.getElementById("file-preview").innerHTML=""; document.getElementById("r-file").value=""; window._selectedFile=null; }
 
 async function submitComplaint() {
   const title    = document.getElementById("r-title").value.trim();
   const category = document.getElementById("r-cat").value;
-  const priority = document.getElementById("r-priority").value;
   const desc     = document.getElementById("r-desc").value.trim();
-  const location = document.getElementById("r-location").value.trim();
+  const location = document.getElementById("r-location")?.value.trim()||"";
   const alertEl  = document.getElementById("report-alert");
   const btn      = document.getElementById("submit-btn");
-
-  if (!title || !category || !desc) {
-    alertEl.innerHTML = `<div class="alert alert-err"><span class="alert-ico">⚠️</span>Title, category and description are required.</div>`;
-    return;
-  }
-
-  btn.disabled = true;
-  btn.innerHTML = `<span class="spin">⟳</span> Submitting…`;
-
+  if (!title||!category||!desc) { alertEl.innerHTML=`<div class="alert alert-err"><span class="alert-ico">⚠️</span>Title, category and description required.</div>`; return; }
+  btn.disabled=true; btn.innerHTML=`<span class="spin">⟳</span> Submitting…`;
   try {
     const fd = new FormData();
-    fd.append("title",       title);
-    fd.append("category",    category);
-    fd.append("priority",    priority);
-    fd.append("description", desc);
-    fd.append("location",    location);
-    if (window._selectedFile) fd.append("image", window._selectedFile);
-
-    const res = await api("complaints", "POST", fd, true);
-    toast(`✅ ${res.message}`, "ok");
+    fd.append("title",title); fd.append("category",category);
+    fd.append("description",desc); fd.append("location",location);
+    if (canManage()) { const pe=document.getElementById("r-priority"); if(pe) fd.append("priority",pe.value); }
+    if (window._selectedFile) fd.append("image",window._selectedFile);
+    const res = await api("complaints","POST",fd,true);
+    toast(`✅ ${res.message}`,"ok");
+    window._selectedFile=null;
     go("complaints");
   } catch(e) {
-    alertEl.innerHTML = `<div class="alert alert-err"><span class="alert-ico">⚠️</span>${e.message}</div>`;
-    btn.disabled = false;
-    btn.innerHTML = "🚀 Submit Complaint";
+    alertEl.innerHTML=`<div class="alert alert-err"><span class="alert-ico">⚠️</span>${e.message}</div>`;
+    btn.disabled=false; btn.innerHTML="🚀 Submit Complaint";
   }
 }
 
-/* ═══════════════════════════════════════
-   MY COMPLAINTS
-═══════════════════════════════════════ */
+/* ══════════════════════════════
+   COMPLAINTS LIST
+══════════════════════════════ */
 async function renderComplaints(el) {
   try {
     const data = await api("complaints");
-    const list = data.data || [];
-
+    const list = data.data||[];
     el.innerHTML = `
       <div class="page-header a1">
-        <h1>My <span>Complaints</span></h1>
-        <p>${list.length} total complaints — real-time from database</p>
+        <h1>${canViewAll()?"All":"My"} <span>Complaints</span></h1>
+        <p>${list.length} total complaints — live from database</p>
       </div>
-
       <div class="flex-bc mb-20 a2" style="flex-wrap:wrap;gap:10px;">
         <div style="display:flex;gap:8px;flex-wrap:wrap;" id="filter-chips">
-          ${["all","new","in-progress","resolved"].map(s => `
-            <button class="btn btn-outline btn-sm ${s==="all"?"btn-primary":""}" onclick="filterChip(this,'${s}')" data-filter="${s}">
-              ${s==="all"?"All ("+list.length+")":s==="new"?"New ("+list.filter(c=>c.status==="new").length+")":s==="in-progress"?"In Progress ("+list.filter(c=>c.status==="in-progress").length+")":"Resolved ("+list.filter(c=>c.status==="resolved").length+")"}
-            </button>
-          `).join("")}
+          ${["all","new","in-progress","resolved"].map(s=>`
+            <button class="btn ${s==="all"?"btn-primary":"btn-outline"} btn-sm" onclick="filterChip(this,'${s}')" data-filter="${s}">
+              ${s==="all"?"All ("+list.length+")":s==="new"?"🆕 New ("+list.filter(c=>c.status==="new").length+")":s==="in-progress"?"⏳ Active ("+list.filter(c=>c.status==="in-progress").length+")":"✅ Done ("+list.filter(c=>c.status==="resolved").length+")"}
+            </button>`).join("")}
         </div>
         <div class="input-icon" style="width:220px;">
           <span class="ico">🔍</span>
           <input class="input" placeholder="Search…" id="search-inp" oninput="searchTickets(this.value)">
         </div>
       </div>
-
       <div id="ticket-grid" class="tickets-grid a3">
-        ${list.length ? list.map(c => ticketCard(c)).join("") : `
+        ${list.length ? list.map(c=>ticketCard(c)).join("") : `
           <div class="card" style="padding:60px;text-align:center;">
-            <div style="font-size:42px;margin-bottom:12px;">📭</div>
-            <div class="fw-7" style="font-size:18px;">No Complaints Found</div>
-            <p class="text-sm text-2" style="margin-top:8px;">The database is empty. Submit your first complaint!</p>
+            <div style="font-size:48px;margin-bottom:14px;">📭</div>
+            <div class="fw-7" style="font-size:19px;">No Complaints Found</div>
+            <p class="text-sm text-2" style="margin-top:8px;">Submit the first campus complaint!</p>
             <button class="btn btn-primary" onclick="go('report')" style="margin-top:16px;">Report an Issue →</button>
           </div>`}
-      </div>
-    `;
-    window._allTickets = list;
-  } catch(e) {
-    el.innerHTML = serverDownBanner();
-  }
+      </div>`;
+  } catch(e) { el.innerHTML = serverDownBanner(); }
 }
 
 function ticketCard(c) {
@@ -753,7 +651,9 @@ function ticketCard(c) {
         <span class="cpill c-${c.category}">${c.category}</span>
         <span class="flex-c gap-8"><span class="pdot p-${c.priority}"></span>${c.priority}</span>
         <span>📅 ${c.created_at}</span>
-        ${c.assigned_to ? `<span>👤 ${c.assigned_to}</span>` : ""}
+        ${canViewAll()&&c.user_name?`<span>👤 ${c.user_name}</span>`:""}
+        ${c.assigned_to?`<span>🔧 ${c.assigned_to}</span>`:""}
+        ${c.image_path?`<span style="color:var(--blue);">📸 Photo</span>`:""}
       </div>
       <div class="tkt-foot">
         <span class="tkt-desc">${c.description}</span>
@@ -763,31 +663,35 @@ function ticketCard(c) {
 }
 
 function filterChip(btn, status) {
-  document.querySelectorAll("#filter-chips .btn").forEach(b => b.classList.remove("btn-primary"));
-  btn.classList.add("btn-primary");
-  document.querySelectorAll("#ticket-grid .tkt").forEach(el => {
-    el.style.display = (status === "all" || el.dataset.status === status) ? "" : "none";
+  document.querySelectorAll("#filter-chips .btn").forEach(b=>b.className="btn btn-outline btn-sm");
+  btn.className="btn btn-primary btn-sm";
+  document.querySelectorAll("#ticket-grid .tkt").forEach(el=>{
+    el.style.display=(status==="all"||el.dataset.status===status)?"":"none";
   });
 }
 function searchTickets(q) {
-  document.querySelectorAll("#ticket-grid .tkt").forEach(el => {
-    el.style.display = el.dataset.title?.includes(q.toLowerCase()) ? "" : "none";
+  document.querySelectorAll("#ticket-grid .tkt").forEach(el=>{
+    el.style.display=el.dataset.title?.includes(q.toLowerCase())?"":"none";
   });
 }
 
-/* ═══════════════════════════════════════
-   TICKET DETAIL MODAL
-═══════════════════════════════════════ */
+/* ══════════════════════════════
+   TICKET DETAIL MODAL (Change 3: Photo visible to faculty/admin/coord)
+══════════════════════════════ */
 async function viewTicket(ticketId) {
   try {
-    const c = await api(`complaints/${ticketId}`);
+    const c  = await api(`complaints/${ticketId}`);
     const steps = ["new","in-progress","resolved"];
     const si    = steps.indexOf(c.status);
+
+    // Photo section — visible to admin, coordinator, faculty
+    const showPhoto = canViewAll() && c.image_path;
+    const canSeePhoto = canViewAll();
 
     openModal(`
       <div class="modal-head">
         <div>
-          <div class="mono" style="font-size:10.5px;color:var(--blue-light);margin-bottom:4px;">${c.ticket_id}</div>
+          <div class="mono" style="font-size:11px;color:var(--blue);margin-bottom:4px;font-weight:700;">${c.ticket_id}</div>
           <div class="modal-title">${c.title}</div>
         </div>
         <button class="modal-close" onclick="closeModal()">×</button>
@@ -799,7 +703,7 @@ async function viewTicket(ticketId) {
           <span class="flex-c gap-8 text-sm"><span class="pdot p-${c.priority}"></span>${c.priority} priority</span>
         </div>
 
-        <div class="tracker" style="margin-bottom:20px;">
+        <div class="tracker" style="margin-bottom:22px;">
           ${["Submitted","Assigned","In Progress","Resolved","Feedback"].map((l,i)=>`
             <div class="t-step ${i<si+1?"done":i===si+1?"active":""}">
               <div class="t-dot">${i<si+1?"✓":i+1}</div>
@@ -807,123 +711,141 @@ async function viewTicket(ticketId) {
             </div>`).join("")}
         </div>
 
-        <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--r-sm);padding:14px;margin-bottom:14px;">
-          <div class="label" style="margin-bottom:6px;">Description</div>
-          <p style="font-size:13.5px;line-height:1.7;">${c.description}</p>
-        </div>
-
-        ${c.location ? `<div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--r-sm);padding:12px;margin-bottom:14px;font-size:13px;">
-          <span class="text-3">📍 Location: </span><span class="fw-7">${c.location}</span>
+        <!-- Reporter Details — visible to admin/coord/faculty -->
+        ${canViewAll() ? `
+        <div class="reporter-card">
+          <div class="reporter-card-title">👤 Reporter Information</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:13.5px;">
+            <div><span class="text-3">Name: </span><strong>${c.user_name||"—"}</strong></div>
+            <div><span class="text-3">Email: </span><strong>${c.user_email||"—"}</strong></div>
+            <div><span class="text-3">Dept: </span><strong>${c.user_dept||"—"}</strong></div>
+            <div><span class="text-3">Roll No: </span><strong>${c.user_roll||"—"}</strong></div>
+            <div><span class="text-3">Phone: </span><strong>${c.user_phone||"—"}</strong></div>
+            <div><span class="text-3">Submitted: </span><strong>${c.created_at}</strong></div>
+          </div>
         </div>` : ""}
 
-        ${c.image_path ? `<div style="margin-bottom:14px;">
-          <img src="${c.image_path}" style="max-width:100%;border-radius:var(--r-sm);border:1px solid var(--border);" alt="Evidence">
+        <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--r-sm);padding:14px;margin-bottom:14px;">
+          <div class="label" style="margin-bottom:6px;">Description</div>
+          <p style="font-size:14.5px;line-height:1.75;">${c.description}</p>
+        </div>
+
+        ${c.location ? `
+        <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--r-sm);padding:12px;margin-bottom:14px;font-size:14px;">
+          <span class="text-3">📍 Location: </span><strong>${c.location}</strong>
+        </div>` : ""}
+
+        <!-- CHANGE 3: Evidence Photo — visible to admin/coordinator/faculty -->
+        ${c.image_path && canSeePhoto ? `
+        <div style="margin-bottom:16px;">
+          <div class="label" style="margin-bottom:8px;">📸 Evidence Photo</div>
+          <img src="${c.image_path}" class="evidence-img"
+            alt="Evidence submitted with complaint"
+            onclick="window.open('${c.image_path}','_blank')"
+            title="Click to view full size">
+          <div class="img-caption">Click image to open full size · Submitted by ${c.user_name}</div>
+        </div>` : c.image_path && !canSeePhoto ? `
+        <div style="background:#fef3c7;border:1px solid #fde68a;border-radius:var(--r-sm);padding:12px;margin-bottom:14px;font-size:13px;color:#92400e;">
+          📸 Evidence photo attached — visible to faculty, coordinator and admin only.
         </div>` : ""}
 
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;">
-          ${[["Reported By", c.user_name],["Department", c.dept],["Assigned To", c.assigned_to||"— Pending"],["Last Updated", c.updated_at||c.created_at],["Submitted", c.created_at],["Ticket ID", c.ticket_id]].map(([k,v])=>`
-            <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--r-sm);padding:11px;">
-              <div class="label" style="margin-bottom:3px;">${k}</div>
-              <div class="fw-7 text-sm">${v}</div>
+          ${[["Dept",c.dept||"—"],["Assigned To",c.assigned_to||"Pending"],["Last Updated",c.updated_at||c.created_at],["Ticket ID",c.ticket_id]].map(([k,v])=>`
+            <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--r-sm);padding:12px;">
+              <div class="label" style="font-size:10px;margin-bottom:3px;">${k}</div>
+              <div class="fw-7" style="font-size:14px;">${v}</div>
             </div>`).join("")}
         </div>
 
+        <!-- CHANGE 5: Faculty can also manage complaints -->
         ${canManage() && c.status !== "resolved" ? `
         <div class="divider"></div>
-        <div class="label">Admin Actions</div>
-        <div style="display:grid;grid-template-columns:1fr auto;gap:8px;margin:10px 0;">
-          <input id="assign-inp" class="input" placeholder="Assign to coordinator…" value="${c.assigned_to||""}">
+        <div class="label" style="margin-bottom:10px;">${isFaculty()?"Faculty":"Admin / Coordinator"} Actions</div>
+        <div style="display:grid;grid-template-columns:1fr auto;gap:8px;margin-bottom:10px;">
+          <input id="assign-inp" class="input" placeholder="Assign to coordinator / staff…" value="${c.assigned_to||""}">
           <button class="btn btn-primary" onclick="assignTicket('${c.ticket_id}')">Assign</button>
         </div>
+        ${(isAdmin()||isCoord()) ? `
+        <div class="form-row" style="margin-bottom:10px;">
+          <div class="form-group" style="margin-bottom:0;">
+            <label class="label">Priority</label>
+            <select id="modal-priority" class="select">
+              <option value="low" ${c.priority==="low"?"selected":""}>🟢 Low</option>
+              <option value="medium" ${c.priority==="medium"?"selected":""}>🟡 Medium</option>
+              <option value="high" ${c.priority==="high"?"selected":""}>🔴 High</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin-bottom:0;display:flex;align-items:flex-end;">
+            <button class="btn btn-outline btn-sm" onclick="updatePriority('${c.ticket_id}')" style="width:100%;height:44px;">Update Priority</button>
+          </div>
+        </div>` : ""}
         <div style="display:flex;gap:8px;flex-wrap:wrap;">
           ${c.status==="new"?`<button class="btn btn-outline btn-sm" onclick="updateTicketStatus('${c.ticket_id}','in-progress')">▶ Mark In Progress</button>`:""}
           <button class="btn btn-success btn-sm" onclick="updateTicketStatus('${c.ticket_id}','resolved')">✅ Mark Resolved</button>
-          <button class="btn btn-danger btn-sm" onclick="deleteTicket('${c.ticket_id}')">🗑 Delete</button>
+          ${isAdmin()?`<button class="btn btn-danger btn-sm" onclick="deleteTicket('${c.ticket_id}')">🗑 Delete</button>`:""}
         </div>` : ""}
+
+        ${canManage() && c.status === "resolved" ? `
+        <div class="alert alert-ok" style="margin-top:12px;"><span class="alert-ico">✅</span>This complaint has been resolved${c.assigned_to?" by "+c.assigned_to:""}.</div>` : ""}
 
         ${c.status==="resolved" && c.user_id===session?.id && !c.feedback ? `
         <div class="divider"></div>
-        <div class="label">Rate Resolution Quality</div>
+        <div class="label">Rate Resolution</div>
         <div style="display:flex;gap:7px;margin-top:10px;flex-wrap:wrap;">
-          ${[1,2,3,4,5].map(i=>`<button class="btn btn-outline btn-sm" onclick="submitFeedback('${c.ticket_id}',${i})" style="font-size:18px;padding:6px 14px;">${"⭐".repeat(i)}</button>`).join("")}
+          ${[1,2,3,4,5].map(i=>`<button class="btn btn-outline btn-sm" onclick="submitFeedback('${c.ticket_id}',${i})" style="font-size:20px;padding:8px 14px;">${"⭐".repeat(i)}</button>`).join("")}
         </div>` : ""}
 
-        ${c.feedback ? `<div class="alert alert-ok" style="margin-top:12px;"><span class="alert-ico">⭐</span>Feedback submitted: ${c.feedback}/5 — Thank you!</div>` : ""}
-      </div>
-    `);
-  } catch(e) {
-    toast("Failed to load ticket: " + e.message, "err");
-  }
+        ${c.feedback ? `<div class="alert alert-ok" style="margin-top:12px;"><span class="alert-ico">⭐</span>Feedback: ${c.feedback}/5 — Thank you!</div>` : ""}
+      </div>`);
+  } catch(e) { toast("Failed to load: "+e.message,"err"); }
 }
 
-async function assignTicket(ticketId) {
+async function assignTicket(tid) {
   const name = document.getElementById("assign-inp").value.trim();
-  if (!name) return;
-  try {
-    await api(`complaints/${ticketId}`, "PUT", { status: "in-progress", assigned_to: name });
-    toast("Assigned successfully!", "ok");
-    closeModal();
-    go(section);
-  } catch(e) { toast(e.message, "err"); }
+  if (!name) { toast("Enter name first","err"); return; }
+  try { await api(`complaints/${tid}`,"PUT",{status:"in-progress",assigned_to:name}); toast("Assigned! Email sent.","ok"); closeModal(); go(section); }
+  catch(e) { toast(e.message,"err"); }
+}
+async function updateTicketStatus(tid, status) {
+  try { await api(`complaints/${tid}`,"PUT",{status}); toast(`Status → ${status}`,"ok"); closeModal(); go(section); }
+  catch(e) { toast(e.message,"err"); }
+}
+async function updatePriority(tid) {
+  const priority = document.getElementById("modal-priority").value;
+  try { await api(`complaints/${tid}`,"PUT",{priority}); toast(`Priority → ${priority}`,"ok"); closeModal(); go(section); }
+  catch(e) { toast(e.message,"err"); }
+}
+async function deleteTicket(tid) {
+  if (!confirm(`Delete ${tid}? Cannot undo.`)) return;
+  try { await api(`complaints/${tid}`,"DELETE"); toast(`${tid} deleted`,"ok"); closeModal(); go(section); }
+  catch(e) { toast(e.message,"err"); }
+}
+async function submitFeedback(tid, rating) {
+  try { await api(`complaints/${tid}`,"PUT",{feedback:rating}); toast("Feedback submitted! ⭐","ok"); closeModal(); go(section); }
+  catch(e) { toast(e.message,"err"); }
 }
 
-async function updateTicketStatus(ticketId, status) {
-  try {
-    await api(`complaints/${ticketId}`, "PUT", { status });
-    toast(`Status updated to: ${status}`, "ok");
-    closeModal();
-    go(section);
-  } catch(e) { toast(e.message, "err"); }
-}
-
-async function deleteTicket(ticketId) {
-  if (!confirm(`Delete ${ticketId}? This cannot be undone.`)) return;
-  try {
-    await api(`complaints/${ticketId}`, "DELETE");
-    toast(`${ticketId} deleted`, "ok");
-    closeModal();
-    go(section);
-  } catch(e) { toast(e.message, "err"); }
-}
-
-async function submitFeedback(ticketId, rating) {
-  try {
-    await api(`complaints/${ticketId}`, "PUT", { feedback: rating });
-    toast("Feedback submitted! Thank you ⭐", "ok");
-    closeModal();
-    go(section);
-  } catch(e) { toast(e.message, "err"); }
-}
-
-/* ═══════════════════════════════════════
-   ADMIN / MANAGE
-═══════════════════════════════════════ */
+/* ══════════════════════════════
+   MANAGE PANEL
+══════════════════════════════ */
 async function renderManage(el) {
   try {
-    const data  = await api("complaints");
-    const stats = await api("stats");
-    const list  = data.data || [];
-
+    const [data, stats] = await Promise.all([api("complaints"), api("stats")]);
+    const list = data.data||[];
     el.innerHTML = `
       <div class="page-header a1">
-        <h1>${isAdmin()?"Admin":"Coordinator"} <span>Control Panel</span></h1>
-        <p>Manage all campus complaints from the real database</p>
+        <h1>${isAdmin()?"Admin":isFaculty()?"Faculty":"Coordinator"} <span>Panel</span></h1>
+        <p>Manage all campus complaints</p>
       </div>
-
       <div class="stats a2" style="grid-template-columns:repeat(3,1fr);">
-        ${[["new","🆕","New Issues","s-teal"],["in-progress","⏳","In Progress","s-yel"],["resolved","✅","Resolved","s-green"]].map(([s,ico,lbl,cls])=>`
-          <div class="stat ${cls}">
-            <div class="stat-top"><div class="stat-ico">${ico}</div></div>
-            <div class="stat-val">${list.filter(c=>c.status===s).length}</div>
-            <div class="stat-label">${lbl}</div>
-          </div>`).join("")}
+        ${[["new","🆕","New","s-teal"],["in-progress","⏳","In Progress","s-yel"],["resolved","✅","Resolved","s-green"]].map(([s,ico,lbl,cls])=>`
+          <div class="stat ${cls}"><div class="stat-top"><div class="stat-ico">${ico}</div></div><div class="stat-val">${list.filter(c=>c.status===s).length}</div><div class="stat-label">${lbl}</div></div>`).join("")}
       </div>
-
       <div class="card a3">
         <div class="card-head">
           <span class="card-title">📋 All Complaints (${list.length})</span>
-          <div style="display:flex;gap:8px;align-items:center;">
-            <select class="select" style="padding:6px 10px;font-size:12px;width:auto;" onchange="filterTable(this.value)">
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+            <select class="select" style="padding:7px 10px;font-size:13px;width:auto;" onchange="filterTable(this.value)">
               <option value="all">All Status</option>
               <option value="new">New</option>
               <option value="in-progress">In Progress</option>
@@ -931,25 +853,25 @@ async function renderManage(el) {
             </select>
             <div class="input-icon" style="width:180px;">
               <span class="ico">🔍</span>
-              <input class="input" style="padding:7px 12px 7px 34px;font-size:12px;" placeholder="Search…" oninput="filterTableSearch(this.value)">
+              <input class="input" style="padding:7px 12px 7px 36px;font-size:13px;" placeholder="Search…" oninput="filterTableSearch(this.value)">
             </div>
           </div>
         </div>
         <div class="tbl-wrap">
           <table id="admin-tbl">
             <thead>
-              <tr><th>Ticket</th><th>Title</th><th>Reporter</th><th>Category</th><th>Priority</th><th>Status</th><th>Dept</th><th>Date</th><th>Actions</th></tr>
+              <tr><th>Ticket</th><th>Title</th><th>Reporter</th><th>Category</th><th>Priority</th><th>Status</th><th>Photo</th><th>Date</th><th>Actions</th></tr>
             </thead>
             <tbody>
               ${list.length ? list.map(c=>`
                 <tr data-status="${c.status}" data-title="${(c.title||"").toLowerCase()}">
-                  <td><span class="mono" style="color:var(--blue-light);font-size:11px;">${c.ticket_id}</span></td>
-                  <td style="font-weight:500;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${c.title}">${c.title}</td>
+                  <td><span class="mono" style="color:var(--blue);font-size:12px;font-weight:700;">${c.ticket_id}</span></td>
+                  <td style="font-weight:600;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${c.title}">${c.title}</td>
                   <td class="text-sm text-2">${c.user_name}</td>
                   <td><span class="cpill c-${c.category}">${c.category}</span></td>
                   <td><span class="flex-c gap-8"><span class="pdot p-${c.priority}"></span>${c.priority}</span></td>
                   <td>${statusBadge(c.status)}</td>
-                  <td class="text-sm text-2">${c.dept||"—"}</td>
+                  <td>${c.image_path?`<a href="${c.image_path}" target="_blank" class="btn btn-outline btn-sm" style="font-size:12px;">📸 View</a>`:`<span class="text-3 text-xs">None</span>`}</td>
                   <td class="text-sm text-2">${c.created_at}</td>
                   <td>
                     <div style="display:flex;gap:5px;">
@@ -957,37 +879,28 @@ async function renderManage(el) {
                       ${c.status!=="resolved"?`<button class="btn btn-success btn-sm" onclick="updateTicketStatus('${c.ticket_id}','${c.status==="new"?"in-progress":"resolved"}')">${c.status==="new"?"▶":"✓"}</button>`:""}
                     </div>
                   </td>
-                </tr>`).join("") : `<tr><td colspan="9" class="tbl-empty">No complaints in database yet.</td></tr>`}
+                </tr>`).join("") : `<tr><td colspan="9" class="tbl-empty">No complaints yet.</td></tr>`}
             </tbody>
           </table>
         </div>
-      </div>
-    `;
+      </div>`;
   } catch(e) { el.innerHTML = serverDownBanner(); }
 }
 
-function filterTable(val) {
-  document.querySelectorAll("#admin-tbl tbody tr[data-status]").forEach(r => {
-    r.style.display = val==="all" || r.dataset.status===val ? "" : "none";
-  });
-}
-function filterTableSearch(q) {
-  document.querySelectorAll("#admin-tbl tbody tr[data-title]").forEach(r => {
-    r.style.display = r.dataset.title?.includes(q.toLowerCase()) ? "" : "none";
-  });
-}
+function filterTable(val) { document.querySelectorAll("#admin-tbl tbody tr[data-status]").forEach(r=>{r.style.display=val==="all"||r.dataset.status===val?"":"none";}); }
+function filterTableSearch(q) { document.querySelectorAll("#admin-tbl tbody tr[data-title]").forEach(r=>{r.style.display=r.dataset.title?.includes(q.toLowerCase())?"":"none";}); }
 
-/* ═══════════════════════════════════════
-   USERS (Admin only)
-═══════════════════════════════════════ */
+/* ══════════════════════════════
+   USERS — Change 6: Only admin can delete
+══════════════════════════════ */
 async function renderUsers(el) {
   try {
     const data = await api("users");
-    const list = data.data || [];
+    const list = data.data||[];
     el.innerHTML = `
       <div class="page-header a1">
         <h1>Registered <span>Users</span></h1>
-        <p>${list.length} users in database</p>
+        <p>${list.length} users · ${isAdmin()?"Admin: you can delete users":"Coordinator: view only"}</p>
       </div>
       <div class="card a2">
         <div class="card-head"><span class="card-title">👥 All Users</span></div>
@@ -997,12 +910,7 @@ async function renderUsers(el) {
             <tbody>
               ${list.map(u=>`
                 <tr>
-                  <td>
-                    <div class="flex-c gap-8">
-                      <div class="avatar" style="width:28px;height:28px;font-size:11px;">${initials(u.name)}</div>
-                      <span class="fw-7">${u.name}</span>
-                    </div>
-                  </td>
+                  <td><div class="flex-c gap-8"><div class="avatar" style="width:30px;height:30px;font-size:11px;flex-shrink:0;">${initials(u.name)}</div><span class="fw-7">${u.name}</span></div></td>
                   <td class="text-sm text-2">${u.email}</td>
                   <td><span class="badge b-${u.role}">${u.role}</span></td>
                   <td class="text-sm">${u.dept||"—"}</td>
@@ -1010,30 +918,47 @@ async function renderUsers(el) {
                   <td class="text-sm text-2">${u.phone||"—"}</td>
                   <td class="text-sm text-2">${u.created_at}</td>
                   <td>
-                    <select class="select" style="padding:5px 8px;font-size:11px;width:auto;" onchange="changeRole(${u.id},this.value)">
-                      <option ${u.role==="student"?"selected":""}>student</option>
-                      <option ${u.role==="coordinator"?"selected":""}>coordinator</option>
-                      <option ${u.role==="admin"?"selected":""}>admin</option>
-                    </select>
+                    <div style="display:flex;gap:6px;align-items:center;">
+                      ${isAdmin() ? `
+                      <select class="select" style="padding:5px 8px;font-size:12px;width:auto;" onchange="changeRole(${u.id},this.value)">
+                        <option ${u.role==="student"?"selected":""} value="student">student</option>
+                        <option ${u.role==="faculty"?"selected":""} value="faculty">faculty</option>
+                        <option ${u.role==="staff"?"selected":""} value="staff">staff</option>
+                        <option ${u.role==="coordinator"?"selected":""} value="coordinator">coordinator</option>
+                        <option ${u.role==="admin"?"selected":""} value="admin">admin</option>
+                      </select>
+                      <button class="btn btn-danger btn-sm" onclick="deleteUser(${u.id},'${u.name}')" title="Delete user" style="padding:5px 10px;">🗑</button>
+                      ` : `<span class="text-xs text-2">${u.role}</span>`}
+                    </div>
                   </td>
                 </tr>`).join("")}
             </tbody>
           </table>
         </div>
-      </div>`;
+      </div>
+      ${isAdmin() ? `<div class="alert alert-info" style="margin-top:12px;"><span class="alert-ico">ℹ️</span>Only Admin can delete users. Deleting a user is permanent and cannot be undone.</div>` : ""}
+    `;
   } catch(e) { el.innerHTML = serverDownBanner(); }
 }
 
-async function changeRole(userId, role) {
-  try {
-    await api(`users/${userId}/role`, "PUT", { role });
-    toast(`Role updated to ${role}`, "ok");
-  } catch(e) { toast(e.message, "err"); }
+async function changeRole(uid, role) {
+  try { await api(`users/${uid}/role`,"PUT",{role}); toast(`Role → ${role}`,"ok"); }
+  catch(e) { toast(e.message,"err"); }
 }
 
-/* ═══════════════════════════════════════
+async function deleteUser(uid, name) {
+  if (!isAdmin()) { toast("Only admin can delete users","err"); return; }
+  if (!confirm(`DELETE user "${name}"?\n\nThis is PERMANENT and cannot be undone.`)) return;
+  try {
+    await api(`users/${uid}`,"DELETE");
+    toast(`User ${name} deleted`,"ok");
+    go("users");
+  } catch(e) { toast(e.message,"err"); }
+}
+
+/* ══════════════════════════════
    PROFILE
-═══════════════════════════════════════ */
+══════════════════════════════ */
 async function renderProfile(el) {
   try {
     const stats = await api("stats");
@@ -1054,12 +979,10 @@ async function renderProfile(el) {
           </div>
           <div class="card a3" style="margin-top:16px;">
             <div class="card-body">
-              <div style="display:grid;gap:8px;font-size:13px;">
-                ${[["🎓 Department", session.dept],["📋 Roll Number", session.roll_no||"—"],["📱 Phone", session.phone||"—"],["🏫 Institution","CDGI, Indore"]].map(([k,v])=>`
-                  <div class="flex-bc" style="padding:9px;background:var(--surface2);border-radius:var(--r-sm);">
-                    <span class="text-2">${k}</span><span class="fw-7">${v}</span>
-                  </div>`).join("")}
-              </div>
+              ${[["🎓 Department",session.dept],["📋 Roll Number",session.roll_no||"—"],["📱 Phone",session.phone||"—"],["🏫 Institution","CDGI, Indore"]].map(([k,v])=>`
+                <div class="flex-bc" style="padding:10px;background:var(--surface2);border-radius:var(--r-sm);margin-bottom:8px;font-size:14px;">
+                  <span class="text-2">${k}</span><span class="fw-7">${v}</span>
+                </div>`).join("")}
             </div>
           </div>
         </div>
@@ -1067,21 +990,16 @@ async function renderProfile(el) {
           <div class="card-head"><span class="card-title">✏️ Edit Profile</span></div>
           <div class="card-body">
             <div id="profile-alert"></div>
+            <div class="form-group"><label class="label">Full Name</label><input id="p-name" class="input" value="${session.name}"></div>
+            <div class="form-group"><label class="label">Email (cannot change)</label><input class="input" value="${session.email}" disabled style="opacity:.5;"></div>
             <div class="form-group">
-              <label class="label">Full Name</label>
-              <input id="p-name" class="input" value="${session.name}">
-            </div>
-            <div class="form-group">
-              <label class="label">Email <span style="color:var(--text-3);font-weight:400;">(cannot change)</span></label>
-              <input class="input" value="${session.email}" disabled style="opacity:.5;">
-            </div>
-            <div class="form-group">
-              <label class="label">Phone Number</label>
-              <input id="p-phone" class="input" value="${session.phone||""}" placeholder="10-digit number">
+              <label class="label">Phone (10 digits)</label>
+              <input id="p-phone" class="input" value="${session.phone||""}" placeholder="10-digit number" maxlength="10" oninput="this.value=this.value.replace(/\D/g,'').slice(0,10)">
+              <span class="field-err" id="profile-phone-err">Must be exactly 10 digits</span>
             </div>
             <div class="divider"></div>
             <div class="form-group">
-              <label class="label">New Password <span style="color:var(--text-3);font-weight:400;">(leave blank to keep)</span></label>
+              <label class="label">New Password (leave blank to keep)</label>
               <div class="pass-wrap">
                 <input id="p-pass" class="input" type="password" placeholder="New password…">
                 <button class="eye-btn" onclick="toggleEye('p-pass',this)" type="button">👁️</button>
@@ -1098,95 +1016,70 @@ async function saveProfile() {
   const name  = document.getElementById("p-name").value.trim();
   const phone = document.getElementById("p-phone").value.trim();
   const pass  = document.getElementById("p-pass").value;
-  const body  = { name, phone };
-  if (pass) body.password = pass;
+  if (phone && !validatePhone(phone)) { document.getElementById("profile-phone-err").classList.add("show"); toast("Phone must be 10 digits","err"); return; }
+  document.getElementById("profile-phone-err")?.classList.remove("show");
   try {
-    const res = await api("profile", "PUT", body);
-    session = res.user;
-    localStorage.setItem("cirs_user", JSON.stringify(session));
-    document.getElementById("profile-alert").innerHTML = `<div class="alert alert-ok"><span class="alert-ico">✅</span>Profile updated successfully!</div>`;
-    toast("Profile saved!", "ok");
-  } catch(e) { toast(e.message, "err"); }
+    const body = {name, phone};
+    if (pass) body.password = pass;
+    const res = await api("profile","PUT",body);
+    session = res.user; localStorage.setItem("cirs_user",JSON.stringify(session));
+    document.getElementById("profile-alert").innerHTML=`<div class="alert alert-ok"><span class="alert-ico">✅</span>Profile updated!</div>`;
+    toast("Profile saved!","ok");
+  } catch(e) { toast(e.message,"err"); }
 }
 
-/* ═══════════════════════════════════════
+/* ══════════════════════════════
    NOTIFICATIONS
-═══════════════════════════════════════ */
+══════════════════════════════ */
 async function loadNotifications() {
   try {
-    const data = await api("notifications");
-    const list = data.data || [];
-    const unread = data.unread || 0;
-    const dot  = document.getElementById("notif-dot");
-    if (dot) dot.classList.toggle("hidden", unread === 0);
+    const data  = await api("notifications");
+    const list  = data.data||[];
+    const unread = data.unread||0;
+    const dot = document.getElementById("notif-dot");
+    if (dot) dot.classList.toggle("hidden", unread===0);
     const listEl = document.getElementById("notif-list");
     if (!listEl) return;
-    listEl.innerHTML = list.length ? list.map(n=>`
-      <div class="notif-item ${!n.is_read?"unread":""}">
-        <div class="notif-msg">${n.message}</div>
-        <div class="notif-time">${n.created_at}</div>
-      </div>`).join("") : `<div class="notif-empty">No notifications yet</div>`;
-  } catch(e) { /* silently ignore */ }
+    listEl.innerHTML = list.length
+      ? list.map(n=>`<div class="notif-item ${!n.is_read?"unread":""}"><div class="notif-msg">${n.message}</div><div class="notif-time">${n.created_at}</div></div>`).join("")
+      : `<div class="notif-empty">No notifications yet</div>`;
+  } catch(e) { /* silent */ }
 }
-
 async function markAllRead() {
-  try {
-    await api("notifications/read-all", "PUT");
-    const dot = document.getElementById("notif-dot");
-    if (dot) dot.classList.add("hidden");
-    document.querySelectorAll(".notif-item.unread").forEach(el => el.classList.remove("unread"));
-    toast("All marked as read", "ok");
-  } catch(e) { toast(e.message, "err"); }
+  try { await api("notifications/read-all","PUT"); document.getElementById("notif-dot")?.classList.add("hidden"); document.querySelectorAll(".notif-item.unread").forEach(el=>el.classList.remove("unread")); toast("All read","ok"); }
+  catch(e) { toast(e.message,"err"); }
 }
+function toggleNotifDrop() { document.getElementById("notif-drop").classList.toggle("open"); loadNotifications(); }
 
-function toggleNotifDrop() {
-  document.getElementById("notif-drop").classList.toggle("open");
-  loadNotifications();
-}
-
-/* ═══════════════════════════════════════
+/* ══════════════════════════════
    MODAL
-═══════════════════════════════════════ */
-function openModal(html) {
-  document.getElementById("modal").innerHTML = html;
-  document.getElementById("overlay").classList.add("show");
-}
-function closeModal() {
-  document.getElementById("overlay")?.classList.remove("show");
-}
+══════════════════════════════ */
+function openModal(html) { document.getElementById("modal").innerHTML=html; document.getElementById("overlay").classList.add("show"); }
+function closeModal() { document.getElementById("overlay")?.classList.remove("show"); }
 
-/* ═══════════════════════════════════════
+/* ══════════════════════════════
    HELPERS
-═══════════════════════════════════════ */
+══════════════════════════════ */
 function statusBadge(s) {
-  const map = { new:"b-new", "in-progress":"b-progress", resolved:"b-resolved" };
-  const lbl = { new:"🆕 New", "in-progress":"⏳ In Progress", resolved:"✅ Resolved" };
-  return `<span class="badge ${map[s]||"b-new"}">${lbl[s]||s}</span>`;
+  const m={new:"b-new","in-progress":"b-progress",resolved:"b-resolved"};
+  const l={new:"🆕 New","in-progress":"⏳ In Progress",resolved:"✅ Resolved"};
+  return `<span class="badge ${m[s]||"b-new"}">${l[s]||s}</span>`;
 }
-
 function serverDownBanner() {
-  return `
-    <div class="card" style="padding:48px;text-align:center;">
-      <div style="font-size:48px;margin-bottom:16px;">⚠️</div>
-      <div class="fw-7" style="font-size:20px;">Cannot connect to server</div>
-      <p class="text-2" style="margin-top:10px;font-size:13.5px;max-width:400px;margin-left:auto;margin-right:auto;line-height:1.7;">
-        The Python Flask server is not running.<br>
-        Open a terminal, go to the <strong>backend/</strong> folder and run:<br>
-      </p>
-      <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--r-sm);padding:14px 20px;display:inline-block;margin-top:14px;font-family:var(--mono);font-size:13px;color:var(--green);">
-        pip install -r requirements.txt<br>python app.py
-      </div>
-      <p class="text-3" style="font-size:12px;margin-top:10px;">Then refresh this page.</p>
-    </div>`;
+  return `<div class="card" style="padding:52px;text-align:center;">
+    <div style="font-size:52px;margin-bottom:16px;">⚠️</div>
+    <div class="fw-7" style="font-size:21px;">Server Not Running</div>
+    <p class="text-2" style="margin-top:10px;font-size:14px;">Run: <code style="background:var(--bg2);padding:2px 8px;border-radius:4px;">cd backend && python app.py</code></p>
+  </div>`;
 }
 
-/* ═══════════════════════════════════════
+/* ══════════════════════════════
    INIT
-═══════════════════════════════════════ */
+══════════════════════════════ */
 window.addEventListener("DOMContentLoaded", () => {
   setTimeout(() => {
     const loader = document.getElementById("loader");
-    if (loader) { loader.classList.add("done"); setTimeout(() => loader.remove(), 500); }
+    if (loader) { loader.classList.add("done"); setTimeout(()=>loader.remove(),500); }
     boot();
-  }, 1800);
+  }, 2000);
 });
