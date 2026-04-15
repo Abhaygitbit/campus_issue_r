@@ -228,7 +228,7 @@ def email_resolved(name,tid,title,by,after_url=""):
 
 # ROUTES
 @app.route("/")
-def index(): return send_from_directory("../frontend","index.html")
+def index(): return send_from_directory(app.static_folder, "index.html")
 
 @app.route("/uploads/<filename>")
 def uploaded_file(filename): return send_from_directory(app.config["UPLOAD_FOLDER"],filename)

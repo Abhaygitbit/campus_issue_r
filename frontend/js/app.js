@@ -10,6 +10,22 @@ let token   = localStorage.getItem("cirs_token") || null;
 let session = JSON.parse(localStorage.getItem("cirs_user") || "null");
 let section = "dashboard";
 
+function injectReadableStyles(){
+  if (document.getElementById("readable-styles")) return;
+  const style = document.createElement("style");
+  style.id = "readable-styles";
+  style.textContent = `
+    html { font-size: 18px; }
+    body, button, input, select, textarea { font-size: 1rem; }
+    p, li, .text-sm, .text-2, .text-3, .input, .select, .label, .btn, .nav-item, .card, .reporter-card, td, th { font-size: 1rem !important; }
+    h1 { font-size: clamp(2.4rem, 4vw, 3.4rem) !important; }
+    h2 { font-size: clamp(1.8rem, 3vw, 2.5rem) !important; }
+    h3 { font-size: clamp(1.3rem, 2vw, 1.8rem) !important; }
+    .btn-lg, .btn-primary, .input, .select, textarea { min-height: 52px; }
+  `;
+  document.head.appendChild(style);
+}
+
 async function api(endpoint, method="GET", body=null, formData=false) {
   const opts = { method, headers: { ...(token ? {Authorization:`Bearer ${token}`} : {}) } };
   if (body && !formData) { opts.headers["Content-Type"]="application/json"; opts.body=JSON.stringify(body); }
