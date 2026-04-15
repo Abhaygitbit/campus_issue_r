@@ -32,3 +32,9 @@ Thumbs.db
 .vscode/
 .idea/
 credentials.json
+.env
+backend/gmail_token.json
+backend/credentials.json
+uploads/
+__pycache__/
+*.pyc

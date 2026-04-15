@@ -2,7 +2,7 @@
 CIRS v4 — Gmail API + Email Verify + Before/After Photos
 CDGI Indore 2025-26
 """
-import os, re, base64, json, threading, secrets, smtplib
+import os, re, base64, json, secrets, smtplib
 from datetime import datetime, timedelta
 from urllib.parse import quote_plus
 from email.mime.multipart import MIMEMultipart
@@ -29,6 +29,10 @@ UPLOAD_DIR = os.path.join(BASE_DIR, "..", "uploads")
 TOKEN_FILE = os.path.join(BASE_DIR, "gmail_token.json")
 CREDS_FILE = os.path.join(BASE_DIR, "credentials.json")
 APP_URL    = os.getenv("APP_URL", "http://localhost:5000")
+RENDER_ENV = os.getenv("RENDER", "").lower() == "true" or bool(os.getenv("RENDER_EXTERNAL_URL"))
+RENDER_EXTERNAL_URL = os.getenv("RENDER_EXTERNAL_URL", "").strip()
+if RENDER_EXTERNAL_URL:
+    APP_URL = RENDER_EXTERNAL_URL.rstrip("/")
 
 app = Flask(__name__, static_folder="../frontend", static_url_path="")
 CORS(app, resources={r"/api/*": {"origins": "*"}})
@@ -45,10 +49,12 @@ app.config["UPLOAD_FOLDER"] = UPLOAD_DIR
 app.config["MAX_CONTENT_LENGTH"] = 32*1024*1024
 
 ALLOWED_EXT = {"png","jpg","jpeg","gif","mp4","pdf"}
-SMTP_HOST=os.getenv("SMTP_HOST","smtp.gmail.com"); SMTP_PORT=int(os.getenv("SMTP_PORT","587"))
-SMTP_USER=os.getenv("SMTP_USER",""); SMTP_PASS=os.getenv("SMTP_PASS","")
-EMAIL_FROM=os.getenv("EMAIL_FROM",SMTP_USER); SMTP_OK=bool(SMTP_USER and SMTP_PASS)
+SMTP_HOST=os.getenv("SMTP_HOST","smtp.gmail.com").strip(); SMTP_PORT=int(os.getenv("SMTP_PORT","587"))
+SMTP_USER=os.getenv("SMTP_USER","").strip(); SMTP_PASS=os.getenv("SMTP_PASS","").replace(" ","").strip()
+EMAIL_FROM=os.getenv("EMAIL_FROM",SMTP_USER).strip() or SMTP_USER; SMTP_OK=bool(SMTP_USER and SMTP_PASS)
 EMAIL_VERIFY_ENABLED=os.getenv("EMAIL_VERIFY_ENABLED","false").lower()=="true"
+MAIL_MODE=os.getenv("MAIL_MODE","smtp" if RENDER_ENV else "auto").lower().strip()
+PHOTO_VIEW_ROLES={"admin","faculty","coordinator"}
 
 db=SQLAlchemy(app); jwt=JWTManager(app); os.makedirs(UPLOAD_DIR,exist_ok=True)
 
@@ -88,11 +94,12 @@ class Complaint(db.Model):
     user_id=db.Column(db.Integer,db.ForeignKey("users.id"),nullable=False)
     created_at=db.Column(db.DateTime,default=datetime.utcnow)
     updated_at=db.Column(db.DateTime,default=datetime.utcnow,onupdate=datetime.utcnow)
-    def to_dict(self):
+    def to_dict(self, viewer=None):
+        can_view_student_photo = bool(viewer and getattr(viewer, "role", "") in PHOTO_VIEW_ROLES)
         return {"id":self.id,"ticket_id":self.ticket_id,"title":self.title,"category":self.category,
                 "description":self.description,"priority":self.priority,"status":self.status,
                 "location":self.location or "",
-                "image_before":f"{APP_URL}{self.image_before}" if self.image_before else None,
+                "image_before":f"{APP_URL}{self.image_before}" if (self.image_before and can_view_student_photo) else None,
                 "image_after":f"{APP_URL}{self.image_after}" if self.image_after else None,
                 "dept":self.dept or "","assigned_to":self.assigned_to or "",
                 "resolved_by":self.resolved_by or "","feedback":self.feedback,
@@ -102,6 +109,7 @@ class Complaint(db.Model):
                 "user_dept":self.reporter.dept if self.reporter else "",
                 "user_roll":self.reporter.roll_no if self.reporter else "",
                 "user_phone":self.reporter.phone if self.reporter else "",
+                "can_view_student_photo":can_view_student_photo,
                 "created_at":self.created_at.strftime("%Y-%m-%d"),
                 "updated_at":self.updated_at.strftime("%Y-%m-%d") if self.updated_at else ""}
 
@@ -134,6 +142,7 @@ def save_upload(file,prefix=""):
 
 # EMAIL
 def get_gmail():
+    if MAIL_MODE == "smtp" or RENDER_ENV: return None
     if not GMAIL_API_OK or not os.path.exists(TOKEN_FILE): return None
     try:
         creds=Credentials.from_authorized_user_file(TOKEN_FILE,["https://www.googleapis.com/auth/gmail.send"])
@@ -144,26 +153,33 @@ def get_gmail():
     except: return None
 
 def send_email(to,subj,html):
-    def _do():
-        msg=MIMEMultipart("alternative"); msg["Subject"]=subj
-        msg["From"]=f"CDGI CIRS <{EMAIL_FROM or SMTP_USER}>"; msg["To"]=to
-        msg.attach(MIMEText(html,"html"))
-        svc=get_gmail()
-        if svc:
-            try:
-                raw=base64.urlsafe_b64encode(msg.as_bytes()).decode()
-                svc.users().messages().send(userId="me",body={"raw":raw}).execute()
-                print(f"[GMAIL OK] {to}"); return
-            except Exception as e: print(f"[GMAIL FAIL] {e}")
-        if SMTP_OK:
-            try:
-                with smtplib.SMTP(SMTP_HOST,SMTP_PORT,timeout=10) as s:
-                    s.ehlo(); s.starttls(); s.login(SMTP_USER,SMTP_PASS)
-                    s.sendmail(EMAIL_FROM,to,msg.as_string())
-                print(f"[SMTP OK] {to}")
-            except Exception as e: print(f"[SMTP FAIL] {e}")
-        else: print(f"[EMAIL SKIP] {to}: {subj}")
-    threading.Thread(target=_do,daemon=True).start()
+    msg=MIMEMultipart("alternative"); msg["Subject"]=subj
+    msg["From"]=f"CDGI CIRS <{EMAIL_FROM or SMTP_USER}>"; msg["To"]=to
+    msg.attach(MIMEText(html,"html"))
+    svc=get_gmail()
+    if svc:
+        try:
+            raw=base64.urlsafe_b64encode(msg.as_bytes()).decode()
+            svc.users().messages().send(userId="me",body={"raw":raw}).execute()
+            print(f"[GMAIL OK] {to}")
+            return True, "gmail_api", ""
+        except Exception as e:
+            print(f"[GMAIL FAIL] {e}")
+            gmail_err=str(e)
+    else:
+        gmail_err="gmail_token.json missing or Gmail API unavailable"
+    if SMTP_OK:
+        try:
+            with smtplib.SMTP(SMTP_HOST,SMTP_PORT,timeout=20) as s:
+                s.ehlo(); s.starttls(); s.login(SMTP_USER,SMTP_PASS)
+                s.sendmail(EMAIL_FROM,[to],msg.as_string())
+            print(f"[SMTP OK] {to}")
+            return True, "smtp", ""
+        except Exception as e:
+            print(f"[SMTP FAIL] {e}")
+            return False, "smtp", str(e)
+    print(f"[EMAIL SKIP] {to}: {subj}")
+    return False, "none", gmail_err
 
 def tpl_base(header_bg,header_txt,body):
     return f"""<div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;border-radius:12px;overflow:hidden;border:1px solid #e2e8f0;">
@@ -249,8 +265,10 @@ def register():
               verify_expires=vexp if EMAIL_VERIFY_ENABLED else None)
     db.session.add(user); db.session.commit()
     if EMAIL_VERIFY_ENABLED:
-        send_email(email,"✉️ Verify Your Email | CDGI CIRS",email_verify(user.name,f"{APP_URL}/verify-email?token={vtok}"))
-        return jsonify({"status":"pending_verification","message":"Check your email to verify your account."}),201
+        sent, provider, err = send_email(email,"✉️ Verify Your Email | CDGI CIRS",email_verify(user.name,f"{APP_URL}/verify-email?token={vtok}"))
+        if not sent:
+            return jsonify({"error":f"Account created, but verification email could not be sent. {err or 'Check Gmail/SMTP setup and try resend.'}","need_verify":True}),500
+        return jsonify({"status":"pending_verification","message":"Verification email sent successfully.","email_provider":provider}),201
     token=create_access_token(identity=str(user.id))
     return jsonify({"status":"success","token":token,"user":user.to_dict()}),201
 
@@ -262,8 +280,10 @@ def resend_verify():
     if user.is_verified: return jsonify({"message":"Already verified."}),200
     tok=secrets.token_urlsafe(32); user.verify_token=tok; user.verify_expires=datetime.utcnow()+timedelta(hours=24)
     db.session.commit()
-    send_email(email,"✉️ Verify Your Email | CDGI CIRS",email_verify(user.name,f"{APP_URL}/verify-email?token={tok}"))
-    return jsonify({"status":"success","message":"Verification email sent."})
+    sent, provider, err = send_email(email,"✉️ Verify Your Email | CDGI CIRS",email_verify(user.name,f"{APP_URL}/verify-email?token={tok}"))
+    if not sent:
+        return jsonify({"error":f"Verification email could not be sent. {err or 'Check Gmail/SMTP setup.'}"}),500
+    return jsonify({"status":"success","message":"Verification email sent.","email_provider":provider})
 
 @app.route("/api/login",methods=["POST"])
 def login():
@@ -308,7 +328,7 @@ def get_complaints():
     if cat: q=q.filter_by(category=cat)
     if srch: q=q.filter(db.or_(Complaint.title.ilike(f"%{srch}%"),Complaint.ticket_id.ilike(f"%{srch}%")))
     complaints=q.order_by(Complaint.created_at.desc()).all()
-    return jsonify({"status":"success","data":[c.to_dict() for c in complaints],"count":len(complaints)})
+    return jsonify({"status":"success","data":[c.to_dict(user) for c in complaints],"count":len(complaints)})
 
 @app.route("/api/complaints",methods=["POST"])
 @jwt_required()
@@ -331,8 +351,11 @@ def create_complaint():
     for u in User.query.filter(User.role.in_(["admin","coordinator","faculty"])).all():
         push_notif(u.id,f"New complaint {tid}: {title} — by {user.name}")
     db.session.commit()
-    send_email(user.email,f"✅ Complaint {tid} Received | CDGI CIRS",email_received(user.name,tid,title,category))
-    return jsonify({"status":"success","message":f"Complaint {tid} submitted! Check email.","complaint":c.to_dict()}),201
+    sent, provider, err = send_email(user.email,f"✅ Complaint {tid} Received | CDGI CIRS",email_received(user.name,tid,title,category))
+    msg=f"Complaint {tid} submitted."
+    if sent: msg+=f" Confirmation email sent via {provider}."
+    else: msg+=f" Saved successfully, but confirmation email failed: {err or 'mail service unavailable'}."
+    return jsonify({"status":"success","message":msg,"email_sent":sent,"complaint":c.to_dict(user)}),201
 
 @app.route("/api/complaints/<ticket_id>",methods=["GET"])
 @jwt_required()
@@ -341,7 +364,7 @@ def get_complaint(ticket_id):
     c=Complaint.query.filter_by(ticket_id=ticket_id).first()
     if not c: return jsonify({"error":"Not found"}),404
     if user.role not in CAN_VIEW and c.user_id!=uid: return jsonify({"error":"Unauthorized"}),403
-    return jsonify(c.to_dict())
+    return jsonify(c.to_dict(user))
 
 @app.route("/api/complaints/<ticket_id>",methods=["PUT"])
 @jwt_required()
@@ -361,16 +384,18 @@ def update_complaint(ticket_id):
         if "resolved_by" in data: c.resolved_by=data["resolved_by"]
         c.updated_at=datetime.utcnow(); db.session.commit()
         reporter=db.session.get(User,c.user_id)
+        mail_msg=""
         if reporter and c.status!=old:
             if c.status=="resolved":
                 after_url=f"{APP_URL}{c.image_after}" if c.image_after else ""
-                send_email(reporter.email,f"✅ Issue Resolved — {ticket_id} | CDGI CIRS",
+                sent, provider, err = send_email(reporter.email,f"✅ Issue Resolved — {ticket_id} | CDGI CIRS",
                            email_resolved(reporter.name,ticket_id,c.title,c.resolved_by or user.name,after_url))
             else:
-                send_email(reporter.email,f"📢 Complaint Update — {ticket_id}",
-                           f"<p>Dear {reporter.name}, complaint {ticket_id} status: <strong>{c.status}</strong></p>")
+                sent, provider, err = send_email(reporter.email,f"📢 Complaint Update — {ticket_id}",
+                           f"<p>Dear {reporter.name}, complaint {ticket_id} is now <strong>{c.status}</strong>.</p>")
+            mail_msg=f" Email sent via {provider}." if sent else f" Email failed: {err or 'mail service unavailable'}."
         push_notif(c.user_id,f"Complaint {ticket_id} → {c.status}")
-        return jsonify({"status":"success","complaint":c.to_dict()})
+        return jsonify({"status":"success","message":f"Complaint {ticket_id} updated to {c.status}.{mail_msg}","complaint":c.to_dict(user)})
     data=request.get_json() or {}
     if "feedback" in data and c.user_id==uid and c.status=="resolved":
         r=int(data["feedback"])
@@ -392,11 +417,15 @@ def upload_after_photo(ticket_id):
     c.image_after=img; c.resolved_by=user.name; c.status="resolved"; c.updated_at=datetime.utcnow()
     db.session.commit()
     reporter=db.session.get(User,c.user_id)
+    sent=False; provider=""; err=""
     if reporter:
-        send_email(reporter.email,f"✅ Issue Resolved — {ticket_id} | CDGI CIRS",
+        sent, provider, err = send_email(reporter.email,f"✅ Issue Resolved — {ticket_id} | CDGI CIRS",
                    email_resolved(reporter.name,ticket_id,c.title,user.name,f"{APP_URL}{img}"))
     push_notif(c.user_id,f"✅ {ticket_id} resolved by {user.name}")
-    return jsonify({"status":"success","message":"Resolution photo uploaded & email sent!","complaint":c.to_dict()})
+    msg="Resolution photo uploaded and complaint marked resolved."
+    if reporter:
+        msg += f" Email sent via {provider}." if sent else f" Email failed: {err or 'mail service unavailable'}."
+    return jsonify({"status":"success","message":msg,"complaint":c.to_dict(user)})
 
 @app.route("/api/complaints/<ticket_id>",methods=["DELETE"])
 @jwt_required()

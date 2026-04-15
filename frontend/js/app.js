@@ -43,6 +43,7 @@ function initials(n){return(n||"?").split(" ").map(w=>w[0]).join("").slice(0,2).
 function valPhone(p){return /^\d{10}$/.test(p);}
 
 function boot(){
+  injectReadableStyles();
   if (session && token) renderApp();
   else renderAuth("login");
 }
@@ -154,8 +155,8 @@ async function resendVerify(){
   const email=window._verifyEmail||document.getElementById("l-email").value.trim();
   if (!email){toast("Enter your email first","err");return;}
   try {
-    await api("resend-verify","POST",{email});
-    toast("✅ Verification email sent! Check your inbox.","ok");
+    const d=await api("resend-verify","POST",{email});
+    toast(d.message || "Verification email sent.","ok");
   } catch(e){toast(e.message,"err");}
 }
 
@@ -174,7 +175,7 @@ async function doRegister(){
   try {
     const d=await api("register","POST",{name,email,password:pass,phone,dept,role,roll_no:roll});
     if (d.status==="pending_verification") {
-      document.getElementById("auth-alert").innerHTML=`<div class="alert alert-info"><span class="alert-ico">📧</span><div><strong>Check your email!</strong><br><span style="font-size:13px;">We sent a verification link to <strong>${email}</strong>. Click it to activate your account.</span></div></div>`;
+      document.getElementById("auth-alert").innerHTML=`<div class="alert alert-info"><span class="alert-ico">📧</span><div><strong>Verification email sent</strong><br><span style="font-size:13px;">A verification link was sent to <strong>${email}</strong>. Click it to activate your account.</span></div></div>`;
     } else {
       saveSession(d); renderApp(); toast(`Welcome to CIRS, ${name}! 🎉`,"ok");
     }
@@ -513,6 +514,7 @@ async function viewTicket(ticketId){
           ${["Submitted","Assigned","In Progress","Resolved","Feedback"].map((l,i)=>`<div class="t-step ${i<si+1?"done":i===si+1?"active":""}"><div class="t-dot">${i<si+1?"✓":i+1}</div><div class="t-label">${l}</div></div>`).join("")}
         </div>
         ${canViewAll()?`<div class="reporter-card"><div class="reporter-card-title">👤 Reporter Information</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:13px;"><div><span class="text-3">Name: </span><strong>${c.user_name||"—"}</strong></div><div><span class="text-3">Email: </span><strong>${c.user_email||"—"}</strong></div><div><span class="text-3">Dept: </span><strong>${c.user_dept||"—"}</strong></div><div><span class="text-3">Roll No: </span><strong>${c.user_roll||"—"}</strong></div><div><span class="text-3">Phone: </span><strong>${c.user_phone||"—"}</strong></div><div><span class="text-3">Submitted: </span><strong>${c.created_at}</strong></div></div></div>`:""}
+        ${c.can_view_student_photo&&c.image_before?`<div class="reporter-card"><div class="reporter-card-title">📷 Student Complaint Photo</div><div style="margin-top:10px;"><img src="${c.image_before}" alt="Complaint photo" style="width:100%;max-height:420px;object-fit:cover;border-radius:14px;border:1px solid var(--line);box-shadow:var(--shadow-sm);"></div></div>`:""}
         <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--r-sm);padding:14px;margin-bottom:14px;">
           <div class="label" style="margin-bottom:6px;">Description</div>
           <p style="font-size:14px;line-height:1.75;">${c.description}</p>
@@ -583,7 +585,7 @@ async function uploadAfterPhoto(ticketId){
 async function assignTicket(tid){
   const name=document.getElementById("assign-inp").value.trim();
   if(!name){toast("Enter name first","err");return;}
-  try{await api(`complaints/${tid}`,"PUT",{status:"in-progress",assigned_to:name});toast("Assigned! Email sent.","ok");closeModal();go(section);}
+  try{const d=await api(`complaints/${tid}`,"PUT",{status:"in-progress",assigned_to:name});toast(d.message||"Assigned successfully.","ok");closeModal();go(section);}
   catch(e){toast(e.message,"err");}
 }
 async function updateTicketStatus(tid,status){
