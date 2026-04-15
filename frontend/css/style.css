@@ -75,6 +75,12 @@ input, select, textarea { font-family: var(--font); }
   border: 4px solid #fff;
   outline: 3px solid #1a4faa;
 }
+.loader-logo-img img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+}
 @keyframes logoPulse {
   0%,100% { box-shadow: 0 8px 32px rgba(26,79,170,.4); }
   50%     { box-shadow: 0 8px 48px rgba(26,79,170,.7), 0 0 0 8px rgba(26,79,170,.1); }
@@ -100,10 +106,17 @@ input, select, textarea { font-family: var(--font); }
   overflow: hidden;
 }
 /* College building background */
-.auth-bg {
+/*.auth-bg {
   position: absolute; inset: 0; z-index: 0;
   background: url('https://images.unsplash.com/photo-1562774053-701939374585?w=1920&q=80')
               center/cover no-repeat;
+}*/
+.auth-bg {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background: url('../images/bg.webp') no-repeat center center;
+  background-size: cover;
 }
 .auth-bg::after {
   content: ''; position: absolute; inset: 0;
@@ -128,6 +141,14 @@ input, select, textarea { font-family: var(--font); }
   padding: 14px 24px;
   display: flex; align-items: center; gap: 10px;
 }
+.auth-topbar-logo {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 2px solid rgba(255,255,255,.85);
+  object-fit: cover;
+  flex-shrink: 0;
+}
 .auth-topbar-icon {
   width: 32px; height: 32px;
   background: rgba(255,255,255,.2);
@@ -142,18 +163,25 @@ input, select, textarea { font-family: var(--font); }
 
 /* Logo section */
 .auth-logo-section {
-  padding: 24px 24px 16px;
+  padding: 12px 12px 12px;
   text-align: center;
   border-bottom: 1px solid #e8edf5;
   background: #f8fafc;
 }
 .auth-cdgi-logo {
-  width: 100px; height: 100px; border-radius: 50%;
+  width: 60px; height: 60px; border-radius: 50%;
   background: linear-gradient(135deg, #1a4faa, #b91c1c);
   display: flex; align-items: center; justify-content: center;
-  font-size: 50px; margin: 0 auto 10px;
+  margin: 0 auto 10px;
   border: 4px solid #fff;
   box-shadow: 0 4px 20px rgba(26,79,170,.35), 0 0 0 3px #1a4faa;
+  overflow: hidden;
+}
+.auth-cdgi-logo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
 }
 .auth-cdgi-name {
   font-size: 13.5px; font-weight: 700; color: var(--blue);
@@ -209,6 +237,13 @@ input, select, textarea { font-family: var(--font); }
   display: flex; align-items: center; justify-content: center;
   font-size: 22px; flex-shrink: 0;
   border: 2px solid rgba(255,255,255,.35);
+  overflow: hidden;
+}
+.sidebar-cdgi-logo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
 }
 .sidebar-brand-text .s-name { font-size: 13px; font-weight: 700; color: #fff; line-height: 1.3; }
 .sidebar-brand-text .s-sub  { font-size: 10px; color: rgba(255,255,255,.65); font-family: var(--mono); letter-spacing: .5px; text-transform: uppercase; }
@@ -271,6 +306,37 @@ input, select, textarea { font-family: var(--font); }
 .pg-title  { font-size: 18px; font-weight: 700; color: var(--text); }
 .pg-crumb  { font-size: 11.5px; color: var(--text-3); font-family: var(--mono); margin-top: 1px; }
 .topbar-r  { display: flex; align-items: center; gap: 8px; }
+.topbar-college-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface2);
+  border-radius: 999px;
+  padding: 5px 12px 5px 5px;
+}
+.topbar-college-logo {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid #fff;
+  box-shadow: 0 0 0 1px var(--blue-l);
+}
+.topbar-college-text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.1;
+}
+.topbar-college-text span {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text);
+}
+.topbar-college-text small {
+  font-size: 10px;
+  color: var(--text-3);
+}
 
 .icon-btn {
   width: 38px; height: 38px; border-radius: var(--r-sm);
@@ -579,6 +645,8 @@ tr:hover td { background: #f0f7ff; }
   .two-col, .three-col { grid-template-columns: 1fr; }
   .content { padding: 16px; }
   .topbar { padding: 0 16px; }
+  .topbar-college-text { display: none; }
+  .topbar-college-brand { padding-right: 5px; }
   .form-row { grid-template-columns: 1fr; }
   .auth-card { margin: 12px; }
 }

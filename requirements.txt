@@ -3,8 +3,6 @@ click==8.3.1
 colorama==0.4.6
 Flask==3.0.0
 Flask-Cors==4.0.0
-Flask-JWT-Extended==4.6.0
-Flask-SQLAlchemy==3.1.1
 greenlet==3.3.2
 gunicorn==25.2.0
 itsdangerous==2.2.0
@@ -15,14 +13,15 @@ PyJWT==2.12.1
 PyMySQL==1.1.2
 SQLAlchemy==2.0.48
 typing_extensions==4.15.0
-Werkzeug==3.0.1
+
 psycopg2-binary==2.9.6
 python-dotenv==1.2.2
-flask==3.0.3
-flask-sqlalchemy==3.1.1
-flask-cors==4.0.1
 flask-jwt-extended==4.6.0
 werkzeug==3.0.3
-psycopg2-binary==2.9.9
-python-dotenv==1.0.1
+
+flask-sqlalchemy==3.1.1
+google-auth==2.29.0
+google-auth-oauthlib==1.2.0
+google-auth-httplib2==0.2.0
+google-api-python-client==2.126.0
 

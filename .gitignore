@@ -31,3 +31,4 @@ Thumbs.db
 # 🔹 IDE files
 .vscode/
 .idea/
+credentials.json
