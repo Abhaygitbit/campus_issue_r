@@ -153,8 +153,10 @@ def get_gmail():
     except: return None
 
 def send_email(to,subj,html):
-    msg=MIMEMultipart("alternative"); msg["Subject"]=subj
-    msg["From"]=f"CDGI CIRS <{EMAIL_FROM or SMTP_USER}>"; msg["To"]=to
+    msg=MIMEMultipart("alternative")
+    msg["Subject"]=subj
+    msg["From"]=f"CDGI CIRS <{EMAIL_FROM or SMTP_USER}>"
+    msg["To"]=to
     msg.attach(MIMEText(html,"html"))
     svc=get_gmail()
     if svc:
@@ -171,7 +173,9 @@ def send_email(to,subj,html):
     if SMTP_OK:
         try:
             with smtplib.SMTP(SMTP_HOST,SMTP_PORT,timeout=20) as s:
-                s.ehlo(); s.starttls(); s.login(SMTP_USER,SMTP_PASS)
+                s.ehlo()
+                s.starttls()
+                s.login(SMTP_USER,SMTP_PASS)
                 s.sendmail(EMAIL_FROM,[to],msg.as_string())
             print(f"[SMTP OK] {to}")
             return True, "smtp", ""
