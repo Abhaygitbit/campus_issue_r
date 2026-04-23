@@ -55,6 +55,8 @@ function isFaculty(){return session?.role==="faculty";}
 function isStaff(){return session?.role==="staff";}
 function canManage(){return ["admin","coordinator","faculty"].includes(session?.role);}
 function canViewAll(){return ["admin","coordinator","faculty"].includes(session?.role);}
+function canAssign(){return ["admin","coordinator","faculty"].includes(session?.role);}
+function statusLabel(s){return ({"pending-assignment":"Pending Assignment","assigned":"Assigned","in-progress":"In Progress","resolved":"Resolved"}[s]||s);}
 function initials(n){return(n||"?").split(" ").map(w=>w[0]).join("").slice(0,2).toUpperCase();}
 function valPhone(p){return /^\d{10}$/.test(p);}
 
@@ -214,14 +216,14 @@ function renderApp(){
             <div class="sidebar-cdgi-logo">
               <img src="images/logo.jpg" alt="CDGI logo">
             </div>
-            <div class="sidebar-brand-text"><div class="s-name">CDGI · CIRS</div><div class="s-sub">Campus Portal v4</div></div>
+            <div class="sidebar-brand-text"><div class="s-name">CDGI · CIRS</div><div class="s-sub">Campus Portal </div></div>
           </div>
         </div>
         <nav class="nav">
           ${staffLimited?`
           <div><div class="nav-section-label">My Work</div>
-            <button class="nav-item active" data-s="report" onclick="go('report')"><span class="nav-icon">✍️</span> Report Issue</button>
-            <button class="nav-item" data-s="complaints" onclick="go('complaints')"><span class="nav-icon">🎫</span> My Complaints</button>
+            <button class="nav-item active" data-s="dashboard" onclick="go('dashboard')"><span class="nav-icon">📊</span> Dashboard</button>
+            <button class="nav-item" data-s="complaints" onclick="go('complaints')"><span class="nav-icon">🛠️</span> My Assigned Issues</button>
           </div>
           <div><div class="nav-section-label">Account</div>
             <button class="nav-item" data-s="profile" onclick="go('profile')"><span class="nav-icon">👤</span> Profile</button>
@@ -277,7 +279,7 @@ function renderApp(){
     </div>
     <div class="overlay" id="overlay" onclick="closeModal()"><div class="modal" id="modal" onclick="event.stopPropagation()"></div></div>
     <div class="toasts" id="toasts"></div>`;
-  if (staffLimited) go("report"); else go("dashboard");
+  if (staffLimited) go("dashboard"); else go("dashboard");
   loadNotifications();
   document.addEventListener("click",e=>{const d=document.getElementById("notif-drop"),b=document.getElementById("notif-btn");if(d&&b&&!d.contains(e.target)&&!b.contains(e.target))d.classList.remove("open");});
 }
@@ -287,7 +289,7 @@ function closeSidebar(){document.getElementById("sidebar")?.classList.remove("op
 function go(s){
   section=s;
   document.querySelectorAll(".nav-item").forEach(el=>el.classList.toggle("active",el.dataset.s===s));
-  const titles={dashboard:"Dashboard",report:"Report Issue",complaints:canViewAll()?"All Complaints":"My Complaints",manage:isAdmin()?"Admin Panel":isFaculty()?"Faculty Panel":"Coordinator Panel",users:"Users",profile:"Profile"};
+  const titles={dashboard:isStaff()?"Staff Dashboard":"Dashboard",report:"Report Issue",complaints:isStaff()?"My Assigned Issues":(canViewAll()?"All Complaints":"My Complaints"),manage:isAdmin()?"Admin Panel":isFaculty()?"Faculty Panel":"Coordinator Panel",users:"Users",profile:"Profile"};
   const pg=document.getElementById("pg-title"); if(pg) pg.textContent=titles[s]||s;
   const content=document.getElementById("page-content"); if(!content) return;
   content.innerHTML=`<div style="text-align:center;padding:60px;color:var(--text-3);">Loading…</div>`;
@@ -310,7 +312,7 @@ async function renderDashboard(el){
       <div class="page-header a1"><h1>Good ${greet}, <span>${session.name.split(" ")[0]}</span> 👋</h1><p>${new Date().toLocaleDateString("en-IN",{weekday:"long",day:"numeric",month:"long",year:"numeric"})}</p></div>
       <div class="stats a2">
         <div class="stat s-blue"><div class="stat-top"><div class="stat-ico">🎫</div><span class="stat-delta">Total</span></div><div class="stat-val">${stats.total}</div><div class="stat-label">Total Complaints</div><div class="stat-strip"><div class="stat-strip-fill" style="width:100%"></div></div></div>
-        <div class="stat s-teal"><div class="stat-top"><div class="stat-ico">🆕</div></div><div class="stat-val">${stats.new}</div><div class="stat-label">New</div><div class="stat-strip"><div class="stat-strip-fill" style="width:${stats.total?(stats.new/stats.total*100).toFixed(0):0}%"></div></div></div>
+        <div class="stat s-teal"><div class="stat-top"><div class="stat-ico">🆕</div></div><div class="stat-val">${stats.pending_assignment ?? stats.new ?? 0}</div><div class="stat-label">Pending Assignment</div><div class="stat-strip"><div class="stat-strip-fill" style="width:${stats.total?((stats.pending_assignment ?? stats.new ?? 0)/stats.total*100).toFixed(0):0}%"></div></div></div>
         <div class="stat s-yel"><div class="stat-top"><div class="stat-ico">⏳</div></div><div class="stat-val">${stats.in_progress}</div><div class="stat-label">In Progress</div><div class="stat-strip"><div class="stat-strip-fill" style="width:${stats.total?(stats.in_progress/stats.total*100).toFixed(0):0}%"></div></div></div>
         <div class="stat s-green"><div class="stat-top"><div class="stat-ico">✅</div><span class="stat-delta up">${stats.resolution_rate}%</span></div><div class="stat-val">${stats.resolved}</div><div class="stat-label">Resolved</div><div class="stat-strip"><div class="stat-strip-fill" style="width:${stats.resolution_rate}%"></div></div></div>
       </div>
@@ -324,7 +326,7 @@ async function renderDashboard(el){
           <div class="card-body" style="display:flex;flex-direction:column;gap:10px;">
             <button class="btn btn-primary" onclick="go('report')" style="justify-content:flex-start;gap:14px;padding:16px;"><span style="font-size:22px;">✍️</span><div style="text-align:left;"><div>Report a New Issue</div><div style="font-size:12px;opacity:.75;font-weight:400;margin-top:2px;">📧 Auto email confirmation sent</div></div></button>
             <button class="btn btn-outline" onclick="go('complaints')" style="justify-content:flex-start;gap:14px;padding:16px;"><span style="font-size:22px;">🎫</span><div style="text-align:left;"><div>${canViewAll()?"All Complaints":"My Complaints"}</div><div style="font-size:12px;opacity:.75;font-weight:400;margin-top:2px;">Before & After photos visible</div></div></button>
-            ${canManage()?`<button class="btn btn-outline" onclick="go('manage')" style="justify-content:flex-start;gap:14px;padding:16px;"><span style="font-size:22px;">⚙️</span><div style="text-align:left;"><div>Manage Panel</div><div style="font-size:12px;opacity:.75;font-weight:400;margin-top:2px;">${stats.new} new awaiting</div></div></button>`:""}
+            ${canManage()?`<button class="btn btn-outline" onclick="go('manage')" style="justify-content:flex-start;gap:14px;padding:16px;"><span style="font-size:22px;">⚙️</span><div style="text-align:left;"><div>Manage Panel</div><div style="font-size:12px;opacity:.75;font-weight:400;margin-top:2px;">${stats.pending_assignment ?? stats.new ?? 0} new awaiting</div></div></button>`:""}
           </div>
         </div>
       </div>
@@ -445,10 +447,10 @@ async function renderComplaints(el){
   try {
     const data=await api("complaints"); const list=data.data||[];
     el.innerHTML=`
-      <div class="page-header a1"><h1>${canViewAll()?"All":"My"} <span>Complaints</span></h1><p>${list.length} total · Live from database</p></div>
+      <div class="page-header a1"><h1>${canViewAll()?"All":(isStaff()?"My Assigned":"My")} <span>${isStaff()?"Issues":"Complaints"}</span></h1><p>${list.length} total · Live from database</p></div>
       <div class="flex-bc mb-20 a2" style="flex-wrap:wrap;gap:10px;">
         <div style="display:flex;gap:8px;flex-wrap:wrap;" id="filter-chips">
-          ${["all","new","in-progress","resolved"].map(s=>`<button class="btn ${s==="all"?"btn-primary":"btn-outline"} btn-sm" onclick="filterChip(this,'${s}')">${s==="all"?"All ("+list.length+")":s==="new"?"🆕 New ("+list.filter(c=>c.status==="new").length+")":s==="in-progress"?"⏳ Active ("+list.filter(c=>c.status==="in-progress").length+")":"✅ Done ("+list.filter(c=>c.status==="resolved").length+")"}</button>`).join("")}
+          ${["all","pending-assignment","assigned","in-progress","resolved"].map(s=>`<button class="btn ${s==="all"?"btn-primary":"btn-outline"} btn-sm" onclick="filterChip(this,'${s}')">${s==="all"?"All ("+list.length+")":s==="pending-assignment"?"🆕 Pending ("+list.filter(c=>c.status==="pending-assignment").length+")":s==="assigned"?"📌 Assigned ("+list.filter(c=>c.status==="assigned").length+")":s==="in-progress"?"⏳ Active ("+list.filter(c=>c.status==="in-progress").length+")":"✅ Done ("+list.filter(c=>c.status==="resolved").length+")"}</button>`).join("")}
         </div>
         <div class="input-icon" style="width:220px;"><span class="ico">🔍</span><input class="input" placeholder="Search…" id="search-inp" oninput="searchTickets(this.value)"></div>
       </div>
@@ -481,40 +483,23 @@ function searchTickets(q){document.querySelectorAll("#ticket-grid .tkt").forEach
 async function viewTicket(ticketId){
   try {
     const c=await api(`complaints/${ticketId}`);
-    const steps=["new","in-progress","resolved"]; const si=steps.indexOf(c.status);
+    const steps=["pending-assignment","assigned","in-progress","resolved"]; const si=Math.max(steps.indexOf(c.status),0);
 
     const photoSection=()=>{
-      const canSee=canViewAll();
-      let html="";
-      // Before photo
-      if(c.image_before){
-        html+=`<div style="margin-bottom:16px;">
-          <div class="label" style="margin-bottom:8px;">📸 Before — Evidence Photo (Submitted by Student)</div>
-          <img src="${c.image_before}" class="evidence-img" onclick="window.open('${c.image_before}','_blank')" title="Click to view full size">
-          <div class="img-caption">Before: Photo submitted with complaint by ${c.user_name}</div>
-        </div>`;
+      const issueImages = c.issue_images || [];
+      const resolutionImages = c.resolution_images || [];
+      let html = "";
+      if(issueImages.length){
+        html += `<div style="margin-bottom:16px;"><div class="label" style="margin-bottom:8px;">📸 Student Uploaded Photos</div><div class="image-grid">${issueImages.map(img=>`<img src="${img.image_url}" class="evidence-img evidence-thumb" onclick="window.open('${img.image_url}','_blank')">`).join('')}</div></div>`;
       }
-      // After photo
-      if(c.image_after){
-        html+=`<div style="margin-bottom:16px;">
-          <div class="label" style="margin-bottom:8px;color:var(--green);">✅ After — Resolution Photo</div>
-          <img src="${c.image_after}" class="evidence-img" style="border-color:#bbf7d0;" onclick="window.open('${c.image_after}','_blank')" title="Click to view full size">
-          <div class="img-caption" style="color:var(--green);">After: Resolved by ${c.resolved_by||"Staff"}</div>
-        </div>`;
+      if(resolutionImages.length){
+        html += `<div style="margin-bottom:16px;"><div class="label" style="margin-bottom:8px;color:var(--green);">✅ Staff Resolution Photos</div><div class="image-grid">${resolutionImages.map(img=>`<img src="${img.image_url}" class="evidence-img evidence-thumb" style="border-color:#bbf7d0;" onclick="window.open('${img.image_url}','_blank')">`).join('')}</div></div>`;
       }
-      // Upload after photo — for staff/faculty/coordinator/admin
-      if(canSee && c.status!=="resolved"){
-        html+=`<div style="margin-bottom:16px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:var(--r);padding:14px;">
-          <div class="label" style="margin-bottom:8px;color:var(--green);">📤 Upload After Photo (Mark as Resolved)</div>
-          <p style="font-size:13px;color:var(--text-2);margin-bottom:10px;">Upload a photo of the resolved location. This will automatically mark the complaint as resolved and send an email to the student.</p>
-          <div class="file-zone" id="after-zone" onclick="document.getElementById('after-file').click()" style="padding:16px;">
-            <div class="file-zone-ico" style="font-size:22px;">📷</div>
-            <div class="file-zone-txt" style="font-size:12px;"><strong>Click to upload</strong> resolved location photo</div>
-          </div>
-          <input type="file" id="after-file" style="display:none" accept="image/*" onchange="handleAfterFile(event,'${c.ticket_id}')">
-          <div id="after-preview"></div>
-          <button class="btn btn-success btn-sm" id="upload-after-btn" style="display:none;margin-top:8px;width:100%;" onclick="uploadAfterPhoto('${c.ticket_id}')">✅ Upload & Mark Resolved</button>
-        </div>`;
+      if((isStaff() || canViewAll()) && c.status!=="resolved"){
+        const canUpload = isStaff() ? (c.assigned_staff_id===session?.id) : true;
+        if(canUpload){
+          html += `<div style="margin-bottom:16px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:var(--r);padding:14px;"><div class="label" style="margin-bottom:8px;color:var(--green);">📤 Upload Fixed-Work Photos</div><p style="font-size:13px;color:var(--text-2);margin-bottom:10px;">Upload one or more proof images. This will mark the issue as resolved.</p><div class="file-zone" id="after-zone" onclick="document.getElementById('after-file').click()" style="padding:16px;"><div class="file-zone-ico" style="font-size:22px;">📷</div><div class="file-zone-txt" style="font-size:12px;"><strong>Click to upload</strong> fixed-work photos</div></div><input type="file" id="after-file" style="display:none" accept="image/*" multiple onchange="handleAfterFile(event,'${c.ticket_id}')"><div id="after-preview"></div><button class="btn btn-success btn-sm" id="upload-after-btn" style="display:none;margin-top:8px;width:100%;" onclick="uploadAfterPhoto('${c.ticket_id}')">✅ Upload & Mark Resolved</button></div>`;
+        }
       }
       return html;
     };
@@ -527,7 +512,7 @@ async function viewTicket(ticketId){
       <div class="modal-body">
         <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:18px;">${statusBadge(c.status)}<span class="cpill c-${c.category}">${c.category}</span><span class="flex-c gap-8 text-sm"><span class="pdot p-${c.priority}"></span>${c.priority}</span></div>
         <div class="tracker" style="margin-bottom:20px;">
-          ${["Submitted","Assigned","In Progress","Resolved","Feedback"].map((l,i)=>`<div class="t-step ${i<si+1?"done":i===si+1?"active":""}"><div class="t-dot">${i<si+1?"✓":i+1}</div><div class="t-label">${l}</div></div>`).join("")}
+          ${["Pending","Assigned","In Progress","Resolved"].map((l,i)=>`<div class="t-step ${i<si+1?"done":i===si+1?"active":""}"><div class="t-dot">${i<si+1?"✓":i+1}</div><div class="t-label">${l}</div></div>`).join("")}
         </div>
         ${canViewAll()?`<div class="reporter-card"><div class="reporter-card-title">👤 Reporter Information</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:13px;"><div><span class="text-3">Name: </span><strong>${c.user_name||"—"}</strong></div><div><span class="text-3">Email: </span><strong>${c.user_email||"—"}</strong></div><div><span class="text-3">Dept: </span><strong>${c.user_dept||"—"}</strong></div><div><span class="text-3">Roll No: </span><strong>${c.user_roll||"—"}</strong></div><div><span class="text-3">Phone: </span><strong>${c.user_phone||"—"}</strong></div><div><span class="text-3">Submitted: </span><strong>${c.created_at}</strong></div></div></div>`:""}
         ${c.can_view_student_photo&&c.image_before?`<div class="reporter-card"><div class="reporter-card-title">📷 Student Complaint Photo</div><div style="margin-top:10px;"><img src="${c.image_before}" alt="Complaint photo" style="width:100%;max-height:420px;object-fit:cover;border-radius:14px;border:1px solid var(--line);box-shadow:var(--shadow-sm);"></div></div>`:""}
@@ -538,13 +523,13 @@ async function viewTicket(ticketId){
         ${c.location?`<div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--r-sm);padding:11px;margin-bottom:14px;font-size:14px;"><span class="text-3">📍 Location: </span><strong>${c.location}</strong></div>`:""}
         ${photoSection()}
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;">
-          ${[["Dept",c.dept||"—"],["Assigned To",c.assigned_to||"Pending"],["Resolved By",c.resolved_by||"—"],["Last Updated",c.updated_at||c.created_at]].map(([k,v])=>`<div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--r-sm);padding:11px;"><div class="label" style="font-size:10px;margin-bottom:3px;">${k}</div><div class="fw-7" style="font-size:13.5px;">${v}</div></div>`).join("")}
+          ${[["Dept",c.dept||"—"],["Assigned Staff",c.assigned_staff_name||"Pending"],["Resolved By",c.resolved_by||"—"],["Last Updated",c.updated_at||c.created_at]].map(([k,v])=>`<div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--r-sm);padding:11px;"><div class="label" style="font-size:10px;margin-bottom:3px;">${k}</div><div class="fw-7" style="font-size:13.5px;">${v}</div></div>`).join("")}
         </div>
         ${canManage()&&c.status!=="resolved"?`
         <div class="divider"></div>
         <div class="label" style="margin-bottom:10px;">Quick Actions</div>
         <div style="display:grid;grid-template-columns:1fr auto;gap:8px;margin-bottom:10px;">
-          <input id="assign-inp" class="input" placeholder="Assign to coordinator/staff…" value="${c.assigned_to||""}">
+          <select id="assign-staff-select" class="select"><option value="">Select staff member</option></select>
           <button class="btn btn-primary" onclick="assignTicket('${c.ticket_id}')">Assign</button>
         </div>
         ${(isAdmin()||isCoord())?`<div class="form-row" style="margin-bottom:10px;">
@@ -556,8 +541,8 @@ async function viewTicket(ticketId){
           </div>
         </div>`:""}
         <div style="display:flex;gap:8px;flex-wrap:wrap;">
-          ${c.status==="new"?`<button class="btn btn-outline btn-sm" onclick="updateTicketStatus('${c.ticket_id}','in-progress')">▶ Mark In Progress</button>`:""}
-          <button class="btn btn-success btn-sm" onclick="updateTicketStatus('${c.ticket_id}','resolved')">✅ Mark Resolved (no photo)</button>
+          ${c.status==="pending-assignment"?``:`<button class="btn btn-outline btn-sm" onclick="updateTicketStatus('${c.ticket_id}','in-progress')">▶ Mark In Progress</button>`}
+          ${c.status!=="resolved"?`<button class="btn btn-success btn-sm" onclick="updateTicketStatus('${c.ticket_id}','resolved')">✅ Mark Resolved</button>`:""}
           ${isAdmin()?`<button class="btn btn-danger btn-sm" onclick="deleteTicket('${c.ticket_id}')">🗑 Delete</button>`:""}
         </div>`:""}
         ${c.status==="resolved"&&c.user_id===session?.id&&!c.feedback?`
@@ -567,42 +552,50 @@ async function viewTicket(ticketId){
         </div>`:""}
         ${c.feedback?`<div class="alert alert-ok" style="margin-top:12px;"><span class="alert-ico">⭐</span>Feedback: ${c.feedback}/5 — Thank you!</div>`:""}
       </div>`);
+    if (canManage()) loadStaffOptions(c.assigned_staff_id);
   } catch(e){toast("Failed: "+e.message,"err");}
 }
 
 function handleAfterFile(e, ticketId){
-  const file=e.target.files[0]; if(!file) return;
+  const files=[...(e.target.files||[])]; if(!files.length) return;
   const preview=document.getElementById("after-preview");
   if(preview){
-    preview.innerHTML=`<div class="file-preview" style="margin-top:8px;"><span>📷</span><span class="file-preview-name">${file.name}</span><span class="file-preview-size">${(file.size/1024).toFixed(1)} KB</span></div>`;
-    if(file.type.startsWith("image/")){
-      preview.innerHTML+=`<img src="${URL.createObjectURL(file)}" style="max-width:100%;max-height:180px;border-radius:8px;border:2px solid #bbf7d0;margin-top:8px;display:block;">`;
-    }
+    preview.innerHTML=files.map(file=>`<div class="file-preview" style="margin-top:8px;"><span>📷</span><span class="file-preview-name">${file.name}</span><span class="file-preview-size">${(file.size/1024).toFixed(1)} KB</span></div>`).join("");
   }
   const btn=document.getElementById("upload-after-btn");
   if(btn) btn.style.display="";
-  window._afterFile=file;
+  window._afterFiles=files;
 }
 
 async function uploadAfterPhoto(ticketId){
-  if(!window._afterFile){toast("Please select a photo first","err");return;}
+  if(!window._afterFiles||!window._afterFiles.length){toast("Please select photo first","err");return;}
   const btn=document.getElementById("upload-after-btn");
   btn.disabled=true; btn.innerHTML=`<span class="spin">⟳</span> Uploading…`;
   try {
-    const fd=new FormData(); fd.append("image_after",window._afterFile);
+    const fd=new FormData(); window._afterFiles.forEach(file=>fd.append("images",file));
     const res=await fetch(`${API}/complaints/${ticketId}/after-photo`,{method:"POST",headers:{Authorization:`Bearer ${token}`},body:fd});
     const data=await res.json();
     if(!res.ok) throw new Error(data.error);
     toast("✅ "+data.message,"ok");
-    window._afterFile=null; closeModal(); go(section);
+    window._afterFiles=null; closeModal(); go(section);
   } catch(e){toast(e.message,"err");btn.disabled=false;btn.innerHTML="✅ Upload & Mark Resolved";}
 }
 
 async function assignTicket(tid){
-  const name=document.getElementById("assign-inp").value.trim();
-  if(!name){toast("Enter name first","err");return;}
-  try{const d=await api(`complaints/${tid}`,"PUT",{status:"in-progress",assigned_to:name});toast(d.message||"Assigned successfully.","ok");closeModal();go(section);}
+  const staffId=document.getElementById("assign-staff-select")?.value;
+  if(!staffId){toast("Select staff member first","err");return;}
+  try{const d=await api(`complaints/${tid}/assign`,"POST",{assigned_staff_id:Number(staffId)});toast(d.message||"Assigned successfully.","ok");closeModal();go(section);}
   catch(e){toast(e.message,"err");}
+}
+
+async function loadStaffOptions(selectedId=null){
+  const select=document.getElementById("assign-staff-select");
+  if(!select) return;
+  try{
+    const res=await api("staff/options");
+    const options=(res.data||[]).map(s=>`<option value="${s.id}" ${Number(selectedId)===Number(s.id)?"selected":""}>${s.name} · ${s.dept||""}</option>`).join("");
+    select.innerHTML=`<option value="">Select staff member</option>${options}`;
+  }catch(e){ select.innerHTML=`<option value="">Unable to load staff</option>`; }
 }
 async function updateTicketStatus(tid,status){
   try{await api(`complaints/${tid}`,"PUT",{status});toast(`Status → ${status}`,"ok");closeModal();go(section);}
@@ -630,13 +623,13 @@ async function renderManage(el){
     const list=data.data||[];
     el.innerHTML=`
       <div class="page-header a1"><h1>${isAdmin()?"Admin":isFaculty()?"Faculty":"Coordinator"} <span>Panel</span></h1><p>Manage all campus complaints</p></div>
-      <div class="stats a2" style="grid-template-columns:repeat(3,1fr);">
-        ${[["new","🆕","New","s-teal"],["in-progress","⏳","In Progress","s-yel"],["resolved","✅","Resolved","s-green"]].map(([s,ico,lbl,cls])=>`<div class="stat ${cls}"><div class="stat-top"><div class="stat-ico">${ico}</div></div><div class="stat-val">${list.filter(c=>c.status===s).length}</div><div class="stat-label">${lbl}</div></div>`).join("")}
+      <div class="stats a2" style="grid-template-columns:repeat(4,1fr);">
+        ${[["pending-assignment","🆕","Pending","s-teal"],["assigned","📌","Assigned","s-blue"],["in-progress","⏳","In Progress","s-yel"],["resolved","✅","Resolved","s-green"]].map(([s,ico,lbl,cls])=>`<div class="stat ${cls}"><div class="stat-top"><div class="stat-ico">${ico}</div></div><div class="stat-val">${list.filter(c=>c.status===s).length}</div><div class="stat-label">${lbl}</div></div>`).join("")}
       </div>
       <div class="card a3">
         <div class="card-head"><span class="card-title">📋 All Complaints (${list.length})</span>
           <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-            <select class="select" style="padding:7px 10px;font-size:13px;width:auto;" onchange="filterTable(this.value)"><option value="all">All Status</option><option value="new">New</option><option value="in-progress">In Progress</option><option value="resolved">Resolved</option></select>
+            <select class="select" style="padding:7px 10px;font-size:13px;width:auto;" onchange="filterTable(this.value)"><option value="all">All Status</option><option value="pending-assignment">Pending</option><option value="assigned">Assigned</option><option value="in-progress">In Progress</option><option value="resolved">Resolved</option></select>
             <div class="input-icon" style="width:180px;"><span class="ico">🔍</span><input class="input" style="padding:7px 12px 7px 36px;font-size:13px;" placeholder="Search…" oninput="filterTableSearch(this.value)"></div>
           </div>
         </div>
@@ -786,10 +779,10 @@ function toggleNotifDrop(){document.getElementById("notif-drop").classList.toggl
 
 /* ══ MODAL ══════════════════════════════════════════════════ */
 function openModal(html){document.getElementById("modal").innerHTML=html;document.getElementById("overlay").classList.add("show");}
-function closeModal(){document.getElementById("overlay")?.classList.remove("show");window._afterFile=null;}
+function closeModal(){document.getElementById("overlay")?.classList.remove("show");window._afterFiles=null;}
 
 /* ══ HELPERS ════════════════════════════════════════════════ */
-function statusBadge(s){const m={new:"b-new","in-progress":"b-progress",resolved:"b-resolved"};const l={new:"🆕 New","in-progress":"⏳ In Progress",resolved:"✅ Resolved"};return `<span class="badge ${m[s]||"b-new"}">${l[s]||s}</span>`;}
+function statusBadge(s){const m={"pending-assignment":"b-new",assigned:"b-admin","in-progress":"b-progress",resolved:"b-resolved"};const l={"pending-assignment":"🆕 Pending Assignment",assigned:"📌 Assigned","in-progress":"⏳ In Progress",resolved:"✅ Resolved"};return `<span class="badge ${m[s]||"b-new"}">${l[s]||s}</span>`;}
 function serverDownBanner(){return `<div class="card" style="padding:52px;text-align:center;"><div style="font-size:52px;margin-bottom:16px;">⚠️</div><div class="fw-7" style="font-size:21px;">Server Not Running</div><p class="text-2" style="margin-top:10px;font-size:14px;">Run: <code style="background:var(--bg2);padding:2px 8px;border-radius:4px;">cd backend && python app.py</code></p></div>`;}
 
 window.addEventListener("DOMContentLoaded",()=>{

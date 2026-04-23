@@ -651,3 +651,6 @@ tr:hover td { background: #f0f7ff; }
   .auth-card { margin: 12px; }
 }
 @media (max-width: 480px) { .stats { grid-template-columns: 1fr; } }
+
+.image-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:12px; }
+.evidence-thumb { max-height:180px; object-fit:cover; }
