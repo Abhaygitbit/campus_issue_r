@@ -27,7 +27,7 @@ except ImportError:
 BASE_DIR   = os.path.dirname(os.path.abspath(__file__))
 UPLOAD_DIR = os.path.join(BASE_DIR, "..", "uploads")
 TOKEN_FILE = os.path.join(BASE_DIR, "gmail_token.json")
-APP_URL    = os.getenv("APP_URL", "http://localhost:5000")
+APP_URL    = os.getenv("APP_URL", "http://localhost:5002")
 RENDER_ENV = os.getenv("RENDER", "").lower() == "true" or bool(os.getenv("RENDER_EXTERNAL_URL"))
 RENDER_EXTERNAL_URL = os.getenv("RENDER_EXTERNAL_URL", "").strip()
 if RENDER_EXTERNAL_URL:
@@ -458,8 +458,8 @@ def create_complaint():
         saved = save_upload(file, prefix=f"issue_{c.ticket_id}", image_only=True)
         if saved:
             uploaded.append(saved)
-            if not c.image_path:
-                c.image_path = (saved)
+            if not c.image_before:
+                c.image_before = (saved)
             db.session.add(IssueImage(complaint_id=c.id, image_path=saved, uploaded_by="student"))
     if uploaded:
         c.image_before = uploaded[0]
@@ -738,7 +738,8 @@ with app.app_context():
         print(f"❌ {e}")
 
 if __name__=="__main__":
-    print("━"*50); print(f"  🏛️  CIRS v5 | http://localhost:5000")
+    PORT = int(os.environ.get('PORT', 5002))
+    print("━"*50); print(f"  🏛️  CIRS v5 | http://localhost:{PORT}")
     print(f"  📧  Gmail API: {'✅' if os.path.exists(TOKEN_FILE) else '⚠️  Run setup_gmail.py'}")
     print(f"  📧  SMTP: {'✅' if SMTP_OK else '⚠️  Not set'}"); print("━"*50)
-    app.run(debug=True,port=5000,host="0.0.0.0")
+    app.run(debug=True,port=PORT,host="0.0.0.0")
