@@ -739,7 +739,14 @@ with app.app_context():
 
 if __name__=="__main__":
     PORT = int(os.environ.get('PORT', 5002))
+#<<<<<<< HEAD
     print("━"*50); print(f"  🏛️  CIRS v5 | http://localhost:{PORT}")
     print(f"  📧  Gmail API: {'✅' if os.path.exists(TOKEN_FILE) else '⚠️  Run setup_gmail.py'}")
     print(f"  📧  SMTP: {'✅' if SMTP_OK else '⚠️  Not set'}"); print("━"*50)
     app.run(debug=True,port=PORT,host="0.0.0.0")
+#=======
+    print("━"*50); print(f"  | http://localhost:{PORT}")
+    print(f"  📧  Gmail API: {'✅' if os.path.exists(TOKEN_FILE) else '⚠️  Run setup_gmail.py'}")
+    print(f"  📧  SMTP: {'✅' if SMTP_OK else '⚠️  Not set'}"); print("━"*50)
+    app.run(debug=True,port=PORT,host="0.0.0.0")
+#>>>>>>> 7a000c3 (save project backend)
