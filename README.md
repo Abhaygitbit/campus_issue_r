@@ -75,11 +75,7 @@ Open http://localhost:5000 in your browser.
 
 ---
 
-## 🔐 Login Credentials
 
-| Role | Email | Password |
-|------|-------|----------|
-| **Admin** | admin@cdgi.edu.in | admin123 |
 
 > The database starts **empty**. The admin account is the only pre-created user.
 > Register new accounts using the **Create Account** button.
@@ -99,42 +95,8 @@ The database file `backend/cirs.db` is **automatically created** when you first 
 | `notifications` | System notifications per user |
 
 ### View Your Database (Optional)
-Download **DB Browser for SQLite** (free): https://sqlitebrowser.org
-Open `backend/cirs.db` to see all your data visually.
 
----
-
-## ☁️ Switch to MySQL (For Cloud Deployment)
-
-### Step 1: Install MySQL driver
-```bash
-pip install pymysql
-```
-
-### Step 2: Edit `backend/app.py` line ~25
-Replace:
-```python
-app.config["SQLALCHEMY_DATABASE_URI"] = f"sqlite:///{DB_PATH}"
-```
-With:
-```python
-app.config["SQLALCHEMY_DATABASE_URI"] = "mysql+pymysql://USERNAME:PASSWORD@HOST/DBNAME"
-```
-
-**Examples:**
-```python
-# Local MySQL
-"mysql+pymysql://root:yourpassword@localhost/cirs_db"
-
-# InfinityFree (free hosting)
-"mysql+pymysql://if0_12345678:pass@sql123.infinityfree.com/if0_12345678_cirs"
-
-# Railway.app (free cloud)
-"mysql+pymysql://root:pass@containers-us-west-1.railway.app:7777/railway"
-
-# PlanetScale (free cloud MySQL)
-"mysql+pymysql://user:pass@host/dbname?ssl_ca=/etc/ssl/certs/ca-certificates.crt"
-```
+use supabase
 
 ### Step 3: Restart
 ```bash
@@ -146,16 +108,6 @@ All tables create themselves automatically!
 
 ## 🌐 Deploy Online (Free Hosting Options)
 
-### Option A: Railway.app (Easiest — Recommended)
-1. Sign up at https://railway.app (free)
-2. Install Railway CLI: `npm install -g @railway/cli`
-3. In project folder:
-```bash
-railway login
-railway init
-railway up
-```
-4. Railway gives you a live URL automatically!
 
 ### Option B: Render.com (Free)
 1. Push code to GitHub
@@ -164,11 +116,6 @@ railway up
 4. Build command: `pip install -r requirements.txt`
 5. Start command: `python app.py`
 
-### Option C: PythonAnywhere (Free)
-1. Sign up at https://pythonanywhere.com
-2. Upload your files via Files tab
-3. Set up a Web app with Flask
-4. Point it to your `backend/app.py`
 
 ---
 
