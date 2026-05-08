@@ -59,7 +59,7 @@ SMTP_USER=os.getenv("SMTP_USER","").strip(); SMTP_PASS=os.getenv("SMTP_PASS","")
 EMAIL_FROM=os.getenv("EMAIL_FROM",SMTP_USER).strip() or SMTP_USER; SMTP_OK=bool(SMTP_USER and SMTP_PASS)
 EMAIL_VERIFY_ENABLED=os.getenv("EMAIL_VERIFY_ENABLED","false").lower()=="true"
 MAIL_MODE=os.getenv("MAIL_MODE","smtp" if RENDER_ENV else "auto").lower().strip()
-MANAGE_ROLES={"admin","faculty","coordinator"}
+MANAGE_ROLES={"admin","faculty","coordinator","service_unit_manager","hod","principal"}
 ASSIGN_ROLES={"admin","faculty","coordinator"}
 PHOTO_ALL_ROLES={"admin","faculty","coordinator"}
 
@@ -80,11 +80,12 @@ class User(db.Model):
     is_verified=db.Column(db.Boolean,default=False)
     verify_token=db.Column(db.String(100))
     verify_expires=db.Column(db.DateTime)
+    service_unit_id=db.Column(db.Integer,db.ForeignKey("service_units.id"),nullable=True)
     created_at=db.Column(db.DateTime,default=datetime.utcnow)
     complaints=db.relationship("Complaint",backref="reporter",lazy=True,foreign_keys="Complaint.user_id")
     assigned_complaints=db.relationship("Complaint",backref="assigned_staff",lazy=True,foreign_keys="Complaint.assigned_staff_id")
     def to_dict(self):
-        return {"id":self.id,"name":self.name,"email":self.email,"role":self.role,"dept":self.dept,
+        return {"id":self.id,"name":self.name,"email":self.email,"role":self.role,"dept":self.dept,"service_unit_id":self.service_unit_id,
                 "roll_no":self.roll_no or "","phone":self.phone or "","is_verified":self.is_verified,
                 "created_at":self.created_at.strftime("%Y-%m-%d") if self.created_at else ""}
 
@@ -94,20 +95,28 @@ class Complaint(db.Model):
     ticket_id=db.Column(db.String(20),unique=True,nullable=False)
     title=db.Column(db.String(250),nullable=False)
     category=db.Column(db.String(50),nullable=False)
+    category_id=db.Column(db.Integer,db.ForeignKey("categories.id"),nullable=True)
+    service_unit_id=db.Column(db.Integer,db.ForeignKey("service_units.id"),nullable=True)
     description=db.Column(db.Text,nullable=False)
     priority=db.Column(db.String(20),default="medium")
-    status=db.Column(db.String(30),default="pending-assignment")
+    status=db.Column(db.String(30),default="submitted")
     location=db.Column(db.String(200))
     image_before=db.Column(db.String(300))
     image_after=db.Column(db.String(300))
     dept=db.Column(db.String(100))
     assigned_to=db.Column(db.String(150))
     assigned_staff_id=db.Column(db.Integer,db.ForeignKey("users.id"),nullable=True)
+    assigned_by_manager_id=db.Column(db.Integer,db.ForeignKey("users.id"),nullable=True)
+    hod_id=db.Column(db.Integer,db.ForeignKey("users.id"),nullable=True)
     resolved_by=db.Column(db.String(150))
     feedback=db.Column(db.Integer)
     user_id=db.Column(db.Integer,db.ForeignKey("users.id"),nullable=False)
     created_at=db.Column(db.DateTime,default=datetime.utcnow)
     updated_at=db.Column(db.DateTime,default=datetime.utcnow,onupdate=datetime.utcnow)
+    assigned_at=db.Column(db.DateTime,nullable=True)
+    resolved_at=db.Column(db.DateTime,nullable=True)
+    escalated_at=db.Column(db.DateTime,nullable=True)
+    is_escalated=db.Column(db.Boolean,default=False)
 
     def normalize_status(self):
         mapping = {"new":"pending-assignment"}
@@ -203,9 +212,27 @@ class Notification(db.Model):
     def to_dict(self):
         return {"id":self.id,"message":self.message,"is_read":self.is_read,"created_at":self.created_at.strftime("%Y-%m-%d %H:%M")}
 
+class ServiceUnit(db.Model):
+    __tablename__="service_units"
+    id=db.Column(db.Integer,primary_key=True)
+    name=db.Column(db.String(100),unique=True,nullable=False)
+    manager_id=db.Column(db.Integer,db.ForeignKey("users.id"),nullable=True)
+    created_at=db.Column(db.DateTime,default=datetime.utcnow)
+    def to_dict(self):
+        return {"id":self.id,"name":self.name,"manager_id":self.manager_id,"created_at":self.created_at.strftime("%Y-%m-%d") if self.created_at else ""}
+
+class Category(db.Model):
+    __tablename__="categories"
+    id=db.Column(db.Integer,primary_key=True)
+    name=db.Column(db.String(100),unique=True,nullable=False)
+    service_unit_id=db.Column(db.Integer,db.ForeignKey("service_units.id"),nullable=False)
+    created_at=db.Column(db.DateTime,default=datetime.utcnow)
+    def to_dict(self):
+        return {"id":self.id,"name":self.name,"service_unit_id":self.service_unit_id,"created_at":self.created_at.strftime("%Y-%m-%d") if self.created_at else ""}
+
 CAT_DEPT={"hygiene":"Maintenance","electrical":"Electrical","transport":"Transport","maintenance":"Maintenance","safety":"Security","admin":"Administration","water":"Maintenance"}
 VALID_PRI={"low","medium","high"}
-VALID_STA={"pending-assignment","assigned","in-progress","resolved"}
+VALID_STA={"submitted","routed","assigned","in-progress","resolved","closed","escalated"}
 
 
 def gen_ticket():
@@ -234,19 +261,53 @@ def save_upload(file,prefix="", image_only=False):
         return f"/uploads/{fname}"
     return None
 
-def complaint_query_for_user(user):
-    if user.role in MANAGE_ROLES:
-        return Complaint.query
-    if user.role == "staff":
-        return Complaint.query.filter_by(assigned_staff_id=user.id)
-    return Complaint.query.filter_by(user_id=user.id)
+def check_and_escalate_issues():
+    """Background task: escalate issues > 48 hours old"""
+    try:
+        forty_eight_hrs_ago=datetime.utcnow()-timedelta(hours=48)
+        issues_to_escalate=Complaint.query.filter(
+            Complaint.assigned_at<forty_eight_hrs_ago,
+            Complaint.status!="resolved",
+            Complaint.status!="closed",
+            Complaint.is_escalated==False
+        ).all()
+        for issue in issues_to_escalate:
+            issue.is_escalated=True
+            issue.escalated_at=datetime.utcnow()
+            issue.status="escalated"
+            try:
+                principal=User.query.filter_by(role="principal").first()
+                if principal:
+                    send_email(principal.email,f"[ESCALATION] Issue {issue.ticket_id} Delayed",
+                        f"Issue {issue.ticket_id}: {issue.title}\nAssigned: {(datetime.utcnow()-issue.assigned_at).days} days ago\nReporter: {issue.reporter.name}\n\nThis issue needs immediate attention.")
+            except Exception:pass
+        if issues_to_escalate:
+            db.session.commit()
+    except Exception:
+        db.session.rollback()
 
-def can_access_complaint(user, complaint):
-    if user.role in MANAGE_ROLES:
-        return True
-    if user.role == "staff":
-        return complaint.assigned_staff_id == user.id
-    return complaint.user_id == user.id
+def complaint_query_for_user(user):
+    q=Complaint.query
+    if user.role=="service_unit_manager":
+        q=q.filter(Complaint.service_unit_id==user.service_unit_id)
+    elif user.role=="hod":
+        dept_students=db.session.query(User.id).filter_by(dept=user.dept).all()
+        q=q.filter(Complaint.user_id.in_([s[0] for s in dept_students]))
+    elif user.role=="principal":
+        q=q.filter_by(is_escalated=True)
+    elif user.role=="staff":
+        q=q.filter_by(assigned_staff_id=user.id)
+    elif user.role not in MANAGE_ROLES:
+        q=q.filter_by(user_id=user.id)
+    return q
+
+def can_access_complaint(user,complaint):
+    if user.role in MANAGE_ROLES:return True
+    if user.role=="service_unit_manager":return complaint.service_unit_id==user.service_unit_id
+    if user.role=="hod":return complaint.reporter.dept==user.dept
+    if user.role=="principal":return complaint.is_escalated
+    if user.role=="staff":return complaint.assigned_staff_id==user.id
+    return complaint.user_id==user.id
 
 # EMAIL
 
@@ -322,6 +383,15 @@ def index(): return send_from_directory(app.static_folder, "index.html")
 @app.route("/uploads/<filename>")
 def uploaded_file(filename): return send_from_directory(app.config["UPLOAD_FOLDER"],filename)
 
+@app.route("/api/roles-list",methods=["GET"])
+def get_roles_list():
+    return jsonify({"roles":["student","faculty","staff","coordinator","service_unit_manager"]})
+
+@app.route("/api/service-units-list",methods=["GET"])
+def get_service_units_list():
+    units=ServiceUnit.query.all()
+    return jsonify({"data":[{"id":u.id,"name":u.name} for u in units]})
+
 @app.route("/verify-email")
 def verify_email_page():
     token=request.args.get("token","")
@@ -343,9 +413,31 @@ def register():
     if len(data["password"])<6: return jsonify({"error":"Password min 6 chars"}),400
     email=data["email"].lower().strip()
     if User.query.filter_by(email=email).first(): return jsonify({"error":"Email already registered"}),409
+    
+    role=data.get("role","student")
+    if role not in {"student","faculty","staff","coordinator","admin","service_unit_manager","hod","principal"}:
+        role="student"
+    
+    service_unit_id=None
+    if role=="service_unit_manager":
+        su_id=data.get("service_unit_id")
+        if su_id:
+            try:
+                su_id=int(su_id)
+                unit=db.session.get(ServiceUnit,su_id)
+                if unit:
+                    service_unit_id=su_id
+                else:
+                    return jsonify({"error":"Service unit not found"}),400
+            except:
+                return jsonify({"error":"Invalid service_unit_id"}),400
+        else:
+            return jsonify({"error":"service_unit_id required for service_unit_manager"}),400
+    
     vtok=secrets.token_urlsafe(32); vexp=datetime.utcnow()+timedelta(hours=24)
     user=User(name=data["name"].strip(),email=email,password=generate_password_hash(data["password"]),
-              role=data.get("role","student"),dept=data.get("dept","CSE"),roll_no=data.get("roll_no",""),phone=phone,
+              role=role,dept=data.get("dept","CSE"),roll_no=data.get("roll_no",""),phone=phone,
+              service_unit_id=service_unit_id,
               is_verified=not EMAIL_VERIFY_ENABLED,
               verify_token=vtok if EMAIL_VERIFY_ENABLED else None,
               verify_expires=vexp if EMAIL_VERIFY_ENABLED else None)
@@ -407,10 +499,12 @@ def update_profile():
 @jwt_required()
 def get_staff_options():
     user = db.session.get(User, int(get_jwt_identity()))
-    if not user or user.role not in ASSIGN_ROLES:
+    if not user or user.role not in ("service_unit_manager","admin","coordinator","faculty"):
         return jsonify({"error": "Access denied"}), 403
-    staff = User.query.filter_by(role="staff").order_by(User.name.asc()).all()
-    return jsonify({"status":"success", "data":[s.to_dict() for s in staff]})
+    staff = User.query.filter_by(role="staff")
+    if user.role == "service_unit_manager":
+        staff = staff.filter_by(service_unit_id=user.service_unit_id)
+    return jsonify({"status":"success", "data":[s.to_dict() for s in staff.order_by(User.name.asc()).all()]})
 
 @app.route("/api/complaints",methods=["GET"])
 @jwt_required()
@@ -439,38 +533,49 @@ def get_staff_issues():
 def create_complaint():
     uid=int(get_jwt_identity()); user=db.session.get(User,uid)
     if not user: return jsonify({"error":"Not found"}),404
-    title=request.form.get("title","").strip(); category=request.form.get("category","").strip()
+    title=request.form.get("title","").strip(); category_id=request.form.get("category_id","").strip()
     desc=request.form.get("description","").strip(); location=request.form.get("location","").strip()
-    if not title or not category or not desc: return jsonify({"error":"Title, category, description required"}),400
-    if category not in CAT_DEPT: return jsonify({"error":"Invalid category"}),400
+    if not title or not category_id or not desc: return jsonify({"error":"Title, category, description required"}),400
+    try:category_id=int(category_id)
+    except:return jsonify({"error":"Invalid category"}),400
+    cat=db.session.get(Category,category_id)
+    if not cat: return jsonify({"error":"Category not found"}),404
+    service_unit=db.session.get(ServiceUnit,cat.service_unit_id)
+    if not service_unit: return jsonify({"error":"Service unit not found"}),400
     priority="medium"
     if user.role in ("admin","coordinator"):
         p=request.form.get("priority","medium")
         if p in VALID_PRI: priority=p
-    c=Complaint(ticket_id=gen_ticket(),title=title,category=category,description=desc,priority=priority,
-                location=location,dept=CAT_DEPT.get(category,"General"),user_id=uid,status="pending-assignment")
+    c=Complaint(ticket_id=gen_ticket(),title=title,category=cat.name,category_id=category_id,service_unit_id=service_unit.id,
+                description=desc,priority=priority,location=location,dept=user.dept,user_id=uid,status="submitted")
+    hod=db.session.query(User).filter_by(role="hod",dept=user.dept).first()
+    if hod:c.hod_id=hod.id
     db.session.add(c); db.session.flush()
-    uploaded = []
-    files = request.files.getlist("images") or []
+    uploaded=[]
+    files=request.files.getlist("images") or []
     if not files and "image" in request.files:
-        files = [request.files["image"]]
+        files=[request.files["image"]]
     for file in files:
-        saved = save_upload(file, prefix=f"issue_{c.ticket_id}", image_only=True)
+        saved=save_upload(file,prefix=f"issue_{c.ticket_id}",image_only=True)
         if saved:
             uploaded.append(saved)
             if not c.image_before:
-                c.image_before = (saved)
-            db.session.add(IssueImage(complaint_id=c.id, image_path=saved, uploaded_by="student"))
+                c.image_before=(saved)
+            db.session.add(IssueImage(complaint_id=c.id,image_path=saved,uploaded_by="student"))
     if uploaded:
-        c.image_before = uploaded[0]
+        c.image_before=uploaded[0]
     db.session.commit()
-    for u in User.query.filter(User.role.in_(["admin","coordinator","faculty"])).all():
-        push_notif(u.id,f"New complaint {c.ticket_id}: {title} — pending assignment")
-    sent, provider, err = send_email(user.email,f"✅ Complaint {c.ticket_id} Received | CDGI CIRS",email_received(user.name,c.ticket_id,title,category))
-    msg=f"Complaint {c.ticket_id} submitted."
-    if sent: msg+=f" Confirmation email sent via {provider}."
-    else: msg+=f" Saved successfully, but confirmation email failed: {err or 'mail service unavailable'}."
-    return jsonify({"status":"success","message":msg,"email_sent":sent,"complaint":c.to_dict(user)}),201
+    try:
+        send_email(user.email,f"✅ Issue {c.ticket_id} Received | CDGI CIRS",
+            f"Hi {user.name},\n\nYour issue {c.ticket_id}: {title}\nCategory: {cat.name}\nService Unit: {service_unit.name}\n\nWe've received your complaint and will route it to the correct unit shortly. You'll receive updates at every stage.\n\nThank you!")
+    except:pass
+    try:
+        mgr=db.session.get(User,service_unit.manager_id)
+        if mgr:
+            send_email(mgr.email,f"[NEW] Issue {c.ticket_id} Routed to Your Unit",
+                f"Hi {mgr.name},\n\nNew issue routed to {service_unit.name}:\n\nTicket: {c.ticket_id}\nTitle: {title}\nCategory: {cat.name}\nReporter: {user.name}\nLocation: {location}\n\nPlease review and assign to your staff.")
+    except:pass
+    return jsonify({"status":"success","message":f"Issue {c.ticket_id} created and routed successfully","complaint":c.to_dict(user)}),201
 
 @app.route("/api/complaints/<ticket_id>",methods=["GET"])
 @jwt_required()
@@ -484,28 +589,36 @@ def get_complaint(ticket_id):
 @app.route("/api/complaints/<ticket_id>/assign", methods=["POST"])
 @jwt_required()
 def assign_complaint(ticket_id):
-    user = db.session.get(User, int(get_jwt_identity()))
-    if not user or user.role not in ASSIGN_ROLES:
-        return jsonify({"error":"Only faculty/admin/coordinator can assign issues"}), 403
-    complaint = Complaint.query.filter_by(ticket_id=ticket_id).first()
-    if not complaint:
-        return jsonify({"error":"Not found"}), 404
-    data = request.get_json() or {}
-    staff_id = data.get("assigned_staff_id")
-    if not staff_id:
-        return jsonify({"error":"assigned_staff_id required"}), 400
-    staff = db.session.get(User, int(staff_id))
-    if not staff or staff.role != "staff":
-        return jsonify({"error":"Selected user is not a valid staff member"}), 400
-    complaint.assigned_staff_id = staff.id
-    complaint.assigned_to = staff.name
-    complaint.status = "assigned"
-    complaint.updated_at = datetime.utcnow()
+    user=db.session.get(User,int(get_jwt_identity()))
+    if not user or user.role not in ("service_unit_manager","admin","coordinator"):
+        return jsonify({"error":"Only service unit managers can assign issues"}),403
+    c=Complaint.query.filter_by(ticket_id=ticket_id).first()
+    if not c:return jsonify({"error":"Not found"}),404
+    if user.role=="service_unit_manager" and c.service_unit_id!=user.service_unit_id:
+        return jsonify({"error":"Can only assign issues in your service unit"}),403
+    data=request.get_json() or {}
+    staff_id=data.get("assigned_staff_id")
+    if not staff_id:return jsonify({"error":"assigned_staff_id required"}),400
+    staff=db.session.get(User,int(staff_id))
+    if not staff or staff.role!="staff":return jsonify({"error":"Invalid staff member"}),400
+    if staff.service_unit_id!=c.service_unit_id:
+        return jsonify({"error":"Staff must belong to the issue's service unit"}),400
+    c.assigned_staff_id=staff.id
+    c.assigned_to=staff.name
+    c.assigned_by_manager_id=user.id
+    c.assigned_at=datetime.utcnow()
+    c.status="assigned"
+    c.updated_at=datetime.utcnow()
     db.session.commit()
-    push_notif(staff.id, f"{complaint.ticket_id} assigned to you by {user.name}")
-    push_notif(complaint.user_id, f"{complaint.ticket_id} assigned to staff: {staff.name}")
-    send_email(staff.email, f"📌 Issue Assigned — {complaint.ticket_id}", email_assigned(staff.name, complaint.ticket_id, complaint.title))
-    return jsonify({"status":"success", "message":f"{complaint.ticket_id} assigned to {staff.name}", "complaint": complaint.to_dict(user)})
+    try:
+        send_email(staff.email,f"📌 Issue {c.ticket_id} Assigned",
+            f"Hi {staff.name},\n\nYou have been assigned issue {c.ticket_id}:\n\nTitle: {c.title}\nDescription: {c.description}\nLocation: {c.location}\n\nPlease start working and update the status accordingly.")
+    except:pass
+    try:
+        send_email(c.reporter.email,f"📌 Issue {c.ticket_id} Assigned",
+            f"Hi {c.reporter.name},\n\nYour issue {c.ticket_id} has been assigned to {staff.name}. You'll receive updates as work progresses.")
+    except:pass
+    return jsonify({"status":"success","message":f"{c.ticket_id} assigned to {staff.name}","complaint":c.to_dict(user)})
 
 @app.route("/api/complaints/<ticket_id>",methods=["PUT"])
 @jwt_required()
@@ -513,18 +626,18 @@ def update_complaint(ticket_id):
     uid=int(get_jwt_identity()); user=db.session.get(User,uid)
     c=Complaint.query.filter_by(ticket_id=ticket_id).first()
     if not c: return jsonify({"error":"Not found"}),404
-    if not can_access_complaint(user, c):
+    if not can_access_complaint(user,c):
         return jsonify({"error":"Unauthorized"}),403
     data=request.get_json() or {}
-    old=c.status
-    if user.role in MANAGE_ROLES or (user.role == "staff" and c.assigned_staff_id == user.id):
+    old_status=c.status
+    if user.role in MANAGE_ROLES or (user.role=="staff" and c.assigned_staff_id==user.id):
         if "status" in data:
             if data["status"] not in VALID_STA: return jsonify({"error":"Invalid status"}),400
-            if user.role == "staff" and data["status"] not in {"assigned", "in-progress", "resolved"}:
-                return jsonify({"error":"Staff cannot set this status"}),400
-            if user.role == "staff" and not c.assigned_staff_id == user.id:
-                return jsonify({"error":"Unauthorized"}),403
+            if user.role=="staff" and data["status"] not in {"in-progress","resolved","closed"}:
+                return jsonify({"error":"Staff can only set in-progress, resolved, or closed"}),400
             c.status=data["status"]
+            if c.status=="resolved":c.resolved_at=datetime.utcnow()
+            if c.status=="escalated":c.escalated_at=datetime.utcnow();c.is_escalated=True
         if user.role in ("admin","coordinator") and "priority" in data:
             if data["priority"] not in VALID_PRI: return jsonify({"error":"Invalid priority"}),400
             c.priority=data["priority"]
@@ -532,22 +645,32 @@ def update_complaint(ticket_id):
             c.assigned_to=data["assigned_to"]
         if user.role in MANAGE_ROLES and "resolved_by" in data:
             c.resolved_by=data["resolved_by"]
-        if c.status == "resolved" and not c.resolved_by:
-            c.resolved_by = user.name
+        if c.status=="resolved" and not c.resolved_by:
+            c.resolved_by=user.name
         c.updated_at=datetime.utcnow(); db.session.commit()
         reporter=db.session.get(User,c.user_id)
-        mail_msg=""
-        if reporter and c.status!=old:
-            if c.status=="resolved":
-                urls = [img.to_dict()["image_url"] for img in c.resolution_images.order_by(ResolutionImage.created_at.asc()).all()]
-                sent, provider, err = send_email(reporter.email,f"✅ Issue Resolved — {ticket_id} | CDGI CIRS", email_resolved(reporter.name,ticket_id,c.title,c.resolved_by or user.name,urls))
-            else:
-                sent, provider, err = send_email(reporter.email,f"📢 Complaint Update — {ticket_id}", f"<p>Dear {reporter.name}, complaint {ticket_id} is now <strong>{c.status}</strong>.</p>")
-            mail_msg=f" Email sent via {provider}." if sent else f" Email failed: {err or 'mail service unavailable'}."
+        if reporter and c.status!=old_status:
+            if c.status=="in-progress":
+                try:
+                    send_email(reporter.email,f"🔧 Work Started - {ticket_id}",
+                        f"Hi {reporter.name},\n\nWork has started on your issue {ticket_id}: {c.title}\n\nYou'll receive updates as we progress.")
+                except:pass
+            elif c.status=="resolved":
+                try:
+                    send_email(reporter.email,f"✅ Issue Resolved - {ticket_id}",
+                        f"Hi {reporter.name},\n\nYour issue {ticket_id} has been resolved!\n\nTitle: {c.title}\nResolved by: {c.resolved_by or user.name}\n\nThank you for reporting this issue.")
+                except:pass
+            elif c.status=="escalated":
+                try:
+                    principal=User.query.filter_by(role="principal").first()
+                    if principal:
+                        send_email(principal.email,f"⚠️ ESCALATION - Issue {ticket_id} Delayed",
+                            f"ESCALATION ALERT:\n\nIssue {ticket_id} has not been resolved within 48 hours of assignment.\n\nTitle: {c.title}\nReporter: {reporter.name}\nAssigned to: {c.assigned_to}\nLocation: {c.location}\n\nThis issue requires immediate attention.")
+                except:pass
         if c.assigned_staff_id:
-            push_notif(c.assigned_staff_id, f"{ticket_id} → {c.status}")
-        push_notif(c.user_id,f"Complaint {ticket_id} → {c.status}")
-        return jsonify({"status":"success","message":f"Complaint {ticket_id} updated to {c.status}.{mail_msg}","complaint":c.to_dict(user)})
+            push_notif(c.assigned_staff_id,f"{ticket_id} → {c.status}")
+        push_notif(c.user_id,f"Issue {ticket_id} → {c.status}")
+        return jsonify({"status":"success","message":f"Issue {ticket_id} updated to {c.status}","complaint":c.to_dict(user)})
     if "feedback" in data and c.user_id==uid and c.status=="resolved":
         r=int(data["feedback"])
         if not 1<=r<=5: return jsonify({"error":"Rating 1-5"}),400
@@ -665,8 +788,14 @@ def update_role(uid):
     target=db.session.get(User,uid)
     if not target: return jsonify({"error":"Not found"}),404
     data=request.get_json() or {}
-    if data.get("role") in {"student","faculty","staff","coordinator","admin"}:
-        target.role=data["role"]; db.session.commit()
+    if data.get("role") in {"student","faculty","staff","coordinator","admin","service_unit_manager","hod","principal"}:
+        target.role=data["role"]
+        if data.get("role")=="service_unit_manager" and "service_unit_id" in data:
+            unit=db.session.get(ServiceUnit,data.get("service_unit_id"))
+            if unit:
+                target.service_unit_id=unit.id
+                unit.manager_id=target.id
+        db.session.commit()
     return jsonify({"status":"success","user":target.to_dict()})
 
 @app.route("/api/users/<int:uid>",methods=["DELETE"])
@@ -695,37 +824,144 @@ def mark_all_read():
     Notification.query.filter_by(user_id=uid,is_read=False).update({"is_read":True})
     db.session.commit(); return jsonify({"status":"success"})
 
+@app.route("/api/service-units",methods=["GET"])
+@jwt_required()
+def get_service_units():
+    units=ServiceUnit.query.all()
+    result=[]
+    for u in units:
+        cats=[c.to_dict() for c in Category.query.filter_by(service_unit_id=u.id).all()]
+        result.append({**u.to_dict(),"categories":cats})
+    return jsonify({"status":"success","data":result})
+
+@app.route("/api/categories",methods=["GET"])
+@jwt_required()
+def get_categories():
+    cats=Category.query.all()
+    return jsonify({"status":"success","data":[c.to_dict() for c in cats]})
+
+@app.route("/api/escalated-issues",methods=["GET"])
+@jwt_required()
+def get_escalated_issues():
+    uid=int(get_jwt_identity()); user=db.session.get(User,uid)
+    if not user or user.role!="principal":
+        return jsonify({"error":"Principal only"}),403
+    check_and_escalate_issues()
+    issues=Complaint.query.filter_by(is_escalated=True).order_by(Complaint.escalated_at.desc()).all()
+    return jsonify({"status":"success","data":[c.to_dict(user) for c in issues]})
+
 def run_migrations():
+    """Enhanced database migration with full schema control"""
     inspector = db.inspect(db.engine)
-    cols = {c['name'] for c in inspector.get_columns('complaints')} if inspector.has_table('complaints') else set()
+    
+    # Check existing tables and columns
+    complaint_cols = {c['name'] for c in inspector.get_columns('complaints')} if inspector.has_table('complaints') else set()
+    user_cols = {c['name'] for c in inspector.get_columns('users')} if inspector.has_table('users') else set()
     dialect = db.engine.dialect.name
     stmts = []
-    if 'assigned_staff_id' not in cols:
-        stmts.append('ALTER TABLE complaints ADD COLUMN assigned_staff_id INTEGER')
-    if 'image_before' not in cols:
-        stmts.append('ALTER TABLE complaints ADD COLUMN image_before VARCHAR(300)')
-    if 'image_after' not in cols:
-        stmts.append('ALTER TABLE complaints ADD COLUMN image_after VARCHAR(300)')
-    if 'resolved_by' not in cols:
-        stmts.append('ALTER TABLE complaints ADD COLUMN resolved_by VARCHAR(150)')
-    if 'is_verified' not in {c['name'] for c in inspector.get_columns('users')}:
-        stmts.append('ALTER TABLE users ADD COLUMN is_verified BOOLEAN DEFAULT 1')
-    if 'verify_token' not in {c['name'] for c in inspector.get_columns('users')}:
-        stmts.append('ALTER TABLE users ADD COLUMN verify_token VARCHAR(100)')
-    if 'verify_expires' not in {c['name'] for c in inspector.get_columns('users')}:
-        stmts.append('ALTER TABLE users ADD COLUMN verify_expires DATETIME')
+    
+    # ========== COLUMNS TO ADD ==========
+    new_complaint_cols = {
+        'category_id': 'ALTER TABLE complaints ADD COLUMN category_id INTEGER',
+        'service_unit_id': 'ALTER TABLE complaints ADD COLUMN service_unit_id INTEGER',
+        'assigned_by_manager_id': 'ALTER TABLE complaints ADD COLUMN assigned_by_manager_id INTEGER',
+        'hod_id': 'ALTER TABLE complaints ADD COLUMN hod_id INTEGER',
+        'assigned_at': 'ALTER TABLE complaints ADD COLUMN assigned_at DATETIME',
+        'resolved_at': 'ALTER TABLE complaints ADD COLUMN resolved_at DATETIME',
+        'escalated_at': 'ALTER TABLE complaints ADD COLUMN escalated_at DATETIME',
+        'is_escalated': 'ALTER TABLE complaints ADD COLUMN is_escalated BOOLEAN DEFAULT 0'
+    }
+    
+    new_user_cols = {
+        'service_unit_id': 'ALTER TABLE users ADD COLUMN service_unit_id INTEGER',
+        'is_verified': 'ALTER TABLE users ADD COLUMN is_verified BOOLEAN DEFAULT 1',
+        'verify_token': 'ALTER TABLE users ADD COLUMN verify_token VARCHAR(100)',
+        'verify_expires': 'ALTER TABLE users ADD COLUMN verify_expires DATETIME'
+    }
+    
+    # Add missing columns
+    for col_name, sql in new_complaint_cols.items():
+        if col_name not in complaint_cols:
+            stmts.append(sql)
+    
+    for col_name, sql in new_user_cols.items():
+        if col_name not in user_cols:
+            stmts.append(sql)
+    
+    # ========== EXECUTE ALL MIGRATIONS ==========
     for stmt in stmts:
         try:
             db.session.execute(db.text(stmt))
             db.session.commit()
-        except Exception:
+            print(f"✅ Migration: {stmt[:60]}...")
+        except Exception as e:
             db.session.rollback()
-    # data backfill
+            print(f"⚠️  Migration failed: {str(e)[:80]}")
+    
+    # ========== DATA NORMALIZATION ==========
     try:
-        db.session.execute(db.text("UPDATE complaints SET status='pending-assignment' WHERE status='new' OR status IS NULL"))
+        db.session.execute(db.text("UPDATE complaints SET status='submitted' WHERE status IN ('new', 'pending-assignment', NULL)"))
         db.session.commit()
+        print("✅ Normalized old status values")
     except Exception:
         db.session.rollback()
+
+def drop_column_safe(table_name, column_name):
+    """Safely drop a column from database"""
+    try:
+        inspector = db.inspect(db.engine)
+        cols = {c['name'] for c in inspector.get_columns(table_name)}
+        if column_name in cols:
+            sql = f"ALTER TABLE {table_name} DROP COLUMN {column_name}"
+            db.session.execute(db.text(sql))
+            db.session.commit()
+            print(f"✅ Dropped column: {table_name}.{column_name}")
+            return True
+        else:
+            print(f"⚠️  Column not found: {table_name}.{column_name}")
+            return False
+    except Exception as e:
+        db.session.rollback()
+        print(f"❌ Error dropping column: {e}")
+        return False
+
+def rename_column_safe(table_name, old_name, new_name):
+    """Rename a column in database"""
+    try:
+        inspector = db.inspect(db.engine)
+        cols = {c['name'] for c in inspector.get_columns(table_name)}
+        if old_name in cols:
+            sql = f"ALTER TABLE {table_name} RENAME COLUMN {old_name} TO {new_name}"
+            db.session.execute(db.text(sql))
+            db.session.commit()
+            print(f"✅ Renamed column: {table_name}.{old_name} → {new_name}")
+            return True
+        else:
+            print(f"⚠️  Column not found: {table_name}.{old_name}")
+            return False
+    except Exception as e:
+        db.session.rollback()
+        print(f"❌ Error renaming column: {e}")
+        return False
+
+def add_column_safe(table_name, column_name, column_type):
+    """Add a new column to database"""
+    try:
+        inspector = db.inspect(db.engine)
+        cols = {c['name'] for c in inspector.get_columns(table_name)}
+        if column_name not in cols:
+            sql = f"ALTER TABLE {table_name} ADD COLUMN {column_name} {column_type}"
+            db.session.execute(db.text(sql))
+            db.session.commit()
+            print(f"✅ Added column: {table_name}.{column_name} ({column_type})")
+            return True
+        else:
+            print(f"⚠️  Column already exists: {table_name}.{column_name}")
+            return False
+    except Exception as e:
+        db.session.rollback()
+        print(f"❌ Error adding column: {e}")
+        return False
 
 with app.app_context():
     try:
@@ -734,19 +970,28 @@ with app.app_context():
         if not User.query.filter_by(role="admin").first():
             db.session.add(User(name="Admin CDGI",email="admin@cdgi.edu.in", password=generate_password_hash("admin123"),role="admin",dept="CSE", roll_no="ADMIN001",phone="0000000000",is_verified=True))
             db.session.commit()
+        if not ServiceUnit.query.first():
+            units_data=[
+                {"name":"Electrical Unit","categories":["Electrical Fault","Power Issue","Lighting"]},
+                {"name":"Plumbing Unit","categories":["Pipe Leakage","Water Supply","Drainage"]},
+                {"name":"Hygiene Unit","categories":["Cleanliness","Waste Management","Sanitation"]},
+                {"name":"IT Support Unit","categories":["Network Issue","Software Problem","Hardware Repair"]},
+                {"name":"Transport Unit","categories":["Vehicle Issue","Transportation","Route Problem"]}
+            ]
+            for unit_data in units_data:
+                unit=ServiceUnit(name=unit_data["name"])
+                db.session.add(unit)
+                db.session.flush()
+                for cat_name in unit_data["categories"]:
+                    cat=Category(name=cat_name,service_unit_id=unit.id)
+                    db.session.add(cat)
+            db.session.commit()
     except Exception as e:
         print(f"❌ {e}")
 
 if __name__=="__main__":
     PORT = int(os.environ.get('PORT', 5002))
-#<<<<<<< HEAD
     print("━"*50); print(f"  🏛️  CIRS v5 | http://localhost:{PORT}")
     print(f"  📧  Gmail API: {'✅' if os.path.exists(TOKEN_FILE) else '⚠️  Run setup_gmail.py'}")
     print(f"  📧  SMTP: {'✅' if SMTP_OK else '⚠️  Not set'}"); print("━"*50)
     app.run(debug=True,port=PORT,host="0.0.0.0")
-#=======
-    print("━"*50); print(f"  | http://localhost:{PORT}")
-    print(f"  📧  Gmail API: {'✅' if os.path.exists(TOKEN_FILE) else '⚠️  Run setup_gmail.py'}")
-    print(f"  📧  SMTP: {'✅' if SMTP_OK else '⚠️  Not set'}"); print("━"*50)
-    app.run(debug=True,port=PORT,host="0.0.0.0")
-#>>>>>>> 7a000c3 (save project backend)
