@@ -31,10 +31,15 @@ Thumbs.db
 # 🔹 IDE files
 .vscode/
 .idea/
+
+# 🔹 Credentials & Tokens
 credentials.json
-.env
-backend/gmail_token.json
 backend/credentials.json
-uploads/
-__pycache__/
-*.pyc
+backend/gmail_token.json
+token.json
+
+# 🔹 Worktrees (temporary development)
+backend.worktrees/
+*.worktrees/
+# remove data base 
+cirs.db
