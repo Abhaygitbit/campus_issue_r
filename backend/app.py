@@ -668,7 +668,8 @@ def update_profile():
     if data.get("password"):
         if len(data["password"])<6: return jsonify({"error":"Password min 6 chars"}),400
         user.password=generate_password_hash(data["password"])
-    db.session.commit(); return jsonify({"status":"success","user":user.to_dict()})
+    db.session.commit()
+    return jsonify({"status":"success","user":user.to_dict()})
 
 @app.route("/api/staff/options", methods=["GET"])
 @jwt_required()
@@ -848,8 +849,8 @@ def get_complaints():
     run_pending_escalations()
     q=complaint_query_for_user(user, request.args.get("scope"))
     st=request.args.get("status"); cat=request.args.get("category"); srch=request.args.get("search")
-    if st: q=q.filter_by(status=st)
-    if cat: q=q.filter_by(category=cat)
+    if st: q=q.filter(Complaint.status == st)
+    if cat: q=q.filter(Complaint.category == cat)
     if srch: q=q.filter(db.or_(Complaint.title.ilike(f"%{srch}%"),Complaint.ticket_id.ilike(f"%{srch}%")))
     complaints=q.order_by(Complaint.created_at.desc()).all()
     return jsonify({"status":"success","data":[c.to_dict(user) for c in complaints],"count":len(complaints)})
@@ -1102,11 +1103,14 @@ def get_stats():
     if not user: return jsonify({"error":"Not found"}),404
     run_pending_escalations()
     base=complaint_query_for_user(user)
-    total=base.count(); pending=base.filter(Complaint.status.in_(["routed","submitted","pending-assignment"])).count()
-    assigned=base.filter_by(status="assigned").count()
-    inp=base.filter_by(status="in-progress").count(); res=base.filter_by(status="resolved").count()
-    cats={}
-    for c in base.all(): cats[c.category]=cats.get(c.category,0)+1
+    total = base.count()
+    pending = base.filter(Complaint.status.in_(["routed","submitted","pending-assignment"])).count()
+    assigned = base.filter(Complaint.status == "assigned").count()
+    inp = base.filter(Complaint.status == "in-progress").count()
+    res = base.filter(Complaint.status == "resolved").count()
+    cats = {}
+    for c in base.all():
+        cats[c.category] = cats.get(c.category, 0) + 1
     return jsonify({"total":total,"pending_assignment":pending,"assigned":assigned,"new":pending,
                     "in_progress":inp,"resolved":res,"categories":cats,
                     "total_users":User.query.count() if user.role=="admin" else None,
