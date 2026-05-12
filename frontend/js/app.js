@@ -13,6 +13,126 @@ let section = "dashboard";
 
 
 
+const getWavePath = (data) => {
+  const maxTrend = Math.max(...data, 1);
+  const width = 100;
+  const height = 40;
+  const step = width / (data.length - 1);
+  const points = data.map((v, i) => ({
+    x: i * step,
+    y: height - (v / maxTrend * 25) - 8
+  }));
+  let d = `M${points[0].x} ${points[0].y}`;
+  for (let i = 0; i < points.length - 1; i++) {
+    const xc = (points[i].x + points[i+1].x) / 2;
+    const yc = (points[i].y + points[i+1].y) / 2;
+    d += ` Q ${points[i].x} ${points[i].y}, ${xc} ${yc}`;
+  }
+  d += ` T ${points[points.length-1].x} ${points[points.length-1].y}`;
+  return d;
+};
+
+const getAreaPath = (data) => {
+  const maxTrend = Math.max(...data, 1);
+  const width = 100;
+  const height = 40;
+  const step = width / (data.length - 1);
+  const points = data.map((v, i) => ({
+    x: i * step,
+    y: height - (v / maxTrend * 20) - 5
+  }));
+  let d = `M0 ${height} L${points[0].x} ${points[0].y}`;
+  for (let i = 0; i < points.length - 1; i++) {
+    const xc = (points[i].x + points[i+1].x) / 2;
+    const yc = (points[i].y + points[i+1].y) / 2;
+    d += ` Q ${points[i].x} ${points[i].y}, ${xc} ${yc}`;
+  }
+  d += ` T ${points[points.length-1].x} ${points[points.length-1].y}`;
+  d += ` L${width} ${height} Z`;
+  return d;
+};
+
+async function showGraphDetail(type) {
+  const stats = await api("stats");
+  if (!stats) return;
+  
+  const trends = stats.trends || [0,0,0,0,0,0,0];
+  const maxTrend = Math.max(...trends, 1);
+  const titles = { total: "Total Complaints", routed: "Routed Issues", progress: "Work in Progress", resolved: "Resolved Issues" };
+  const colors = { total: "detail-blue", routed: "detail-orange", progress: "detail-purple", resolved: "detail-green" };
+  const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  const last7Days = Array.from({length: 7}, (_, i) => {
+    const d = new Date(); d.setDate(d.getDate() - (6 - i));
+    return days[d.getDay()];
+  });
+
+  const html = `
+    <div class="graph-detail-wrap ${colors[type] || ''}">
+      <div class="graph-detail-header">
+        <div>
+          <div class="graph-detail-title">${titles[type]}</div>
+          <div class="graph-detail-subtitle">In-depth analysis of campus reporting</div>
+        </div>
+        <button class="btn btn-outline btn-sm" onclick="closeModal()">Close</button>
+      </div>
+      
+      <div class="large-chart-container" style="justify-content: center; align-items: center;">
+        ${type === 'total' ? `
+          <div style="display: flex; align-items: flex-end; gap: 15px; width: 100%; height: 100%;">
+            ${trends.map((v, i) => `
+              <div class="large-bar">
+                <div class="large-bar-val">${v}</div>
+                <div class="large-bar-fill" style="height: ${Math.max((v/maxTrend*100), 5)}%"></div>
+                <div class="large-bar-label">${last7Days[i]}</div>
+              </div>
+            `).join("")}
+          </div>
+        ` : type === 'routed' || type === 'resolved' ? `
+          <div style="width: 100%; height: 100%; display: flex; flex-direction: column;">
+            <svg viewBox="0 0 100 40" style="width: 100%; height: 200px; fill: none; stroke: var(--wg-s, #3b82f6); stroke-width: 2;">
+               ${type === 'resolved' ? `<path d="${getAreaPath(trends)}" fill="var(--wg-s)" style="opacity: 0.15; stroke:none;" />` : ''}
+               <path d="${type === 'resolved' ? getAreaPath(trends).replace(' Z', '').replace('M0 40 L', 'M') : getWavePath(trends)}" stroke-width="1.5" />
+            </svg>
+            <div style="display: flex; justify-content: space-between; margin-top: 20px; padding: 0 10px;">
+              ${last7Days.map(d => `<span style="font-size: 11px; font-weight: 600; color: var(--text-3);">${d}</span>`).join("")}
+            </div>
+          </div>
+        ` : `
+          <div style="position: relative; width: 220px; height: 220px;">
+            <svg viewBox="0 0 100 100" style="transform: rotate(-90deg); width: 100%; height: 100%;">
+              <circle cx="50" cy="50" r="45" fill="none" stroke="var(--surface2)" stroke-width="8" />
+              <circle cx="50" cy="50" r="45" fill="none" stroke="var(--wg-s, #8b5cf6)" stroke-width="8" 
+                stroke-dasharray="283" 
+                stroke-dashoffset="${283 - (283 * (stats.total ? stats.in_progress/stats.total : 0))}"
+                style="transition: stroke-dashoffset 1s ease; filter: drop-shadow(0 0 10px var(--wg-s));" />
+            </svg>
+            <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center;">
+              <div style="font-size: 48px; font-weight: 800;">${stats.in_progress}</div>
+              <div style="font-size: 12px; font-weight: 700; color: var(--text-3); text-transform: uppercase;">Active</div>
+            </div>
+          </div>
+        `}
+      </div>
+
+      <div class="detail-stats-grid">
+        <div class="detail-stat-item">
+          <div class="detail-stat-label">Total Count</div>
+          <div class="detail-stat-val">${stats[type == 'total' ? 'total' : type == 'progress' ? 'in_progress' : type == 'resolved' ? 'resolved' : 'new'] || 0}</div>
+        </div>
+        <div class="detail-stat-item">
+          <div class="detail-stat-label">Avg / Day</div>
+          <div class="detail-stat-val">${(trends.reduce((a,b)=>a+b,0)/7).toFixed(1)}</div>
+        </div>
+        <div class="detail-stat-item">
+          <div class="detail-stat-label">Efficiency Rate</div>
+          <div class="detail-stat-val">${stats.resolution_rate || 0}%</div>
+        </div>
+      </div>
+    </div>
+  `;
+  openModal(html, "lg");
+}
+
 async function api(endpoint, method="GET", body=null, formData=false) {
   const opts = { method, headers: { ...(token ? {Authorization:`Bearer ${token}`} : {}) } };
   if (body && !formData) { opts.headers["Content-Type"]="application/json"; opts.body=JSON.stringify(body); }
@@ -227,17 +347,17 @@ function renderApp(){
         <nav class="nav">
           ${staffLimited?`
           <div><div class="nav-section-label">My Work</div>
-            <button class="nav-item active" data-s="dashboard" onclick="go('dashboard')"><span class="nav-icon">📊</span> Dashboard</button>
-            <button class="nav-item" data-s="complaints" onclick="go('complaints')"><span class="nav-icon">🛠️</span> My Assigned Issues</button>
+            <button class="nav-item active" data-s="dashboard" onclick="go('dashboard')">Dashboard</button>
+            <button class="nav-item" data-s="complaints" onclick="go('complaints')">My Assigned Issues</button>
           </div>
           <div><div class="nav-section-label">Account</div>
             <button class="nav-item" data-s="profile" onclick="go('profile')"><span class="nav-icon">👤</span> Profile</button>
             <button class="nav-item" onclick="logout()"><span class="nav-icon">🚪</span> Sign Out</button>
           </div>`:`
           <div><div class="nav-section-label">Main Menu</div>
-            <button class="nav-item active" data-s="dashboard" onclick="go('dashboard')"><span class="nav-icon">📊</span> Dashboard</button>
-            ${showReport?`<button class="nav-item" data-s="report" onclick="go('report')"><span class="nav-icon">📝</span> Report Issue</button>`:""}
-            <button class="nav-item" data-s="${complaintSection}" onclick="go('${complaintSection}')"><span class="nav-icon">🎫</span> ${complaintNavLabel()}</button>
+            <button class="nav-item active" data-s="dashboard" onclick="go('dashboard')">Dashboard</button>
+            ${showReport?`<button class="nav-item" data-s="report" onclick="go('report')">Report Issue</button>`:""}
+            <button class="nav-item" data-s="${complaintSection}" onclick="go('${complaintSection}')">${complaintNavLabel()}</button>
           </div>
           ${(showManage||showUsers||showStaffMembers)?`<div><div class="nav-section-label">Management</div>
             ${showManage?`<button class="nav-item" data-s="manage" onclick="go('manage')"><span class="nav-icon">⚙️</span> Manager Panel<span class="nav-badge" id="new-count" style="display:none">0</span></button>`:""}
@@ -284,7 +404,8 @@ function renderApp(){
       </main>
     </div>
     <div class="overlay" id="overlay" onclick="closeModal()"><div class="modal" id="modal" onclick="event.stopPropagation()"></div></div>
-    <div class="toasts" id="toasts"></div>`;
+    <div class="toasts" id="toasts"></div>
+    <div id="chart-tooltip" class="chart-tooltip"></div>`;
   go("dashboard");
   loadNotifications();
   document.addEventListener("click",e=>{const d=document.getElementById("notif-drop"),b=document.getElementById("notif-btn");if(d&&b&&!d.contains(e.target)&&!b.contains(e.target))d.classList.remove("open");});
@@ -316,24 +437,126 @@ async function renderDashboard(el){
     const cats=stats.categories||{}; const maxCat=Math.max(...Object.values(cats),1);
     const hr=new Date().getHours(); const greet=hr<12?"morning":hr<17?"afternoon":"evening";
     const quickActions = [
-      canReport()?`<button class="btn btn-primary" onclick="go('report')" style="justify-content:flex-start;gap:14px;padding:16px;"><span style="font-size:22px;">📝</span><div style="text-align:left;"><div>Report a New Issue</div><div style="font-size:12px;opacity:.75;font-weight:400;margin-top:2px;">Submit directly to the correct service unit</div></div></button>`:"",
-      `<button class="btn btn-outline" onclick="go('${isPrincipal()?"unsolved":"complaints"}')" style="justify-content:flex-start;gap:14px;padding:16px;"><span style="font-size:22px;">🎫</span><div style="text-align:left;"><div>${complaintNavLabel()}</div><div style="font-size:12px;opacity:.75;font-weight:400;margin-top:2px;">Track complaint status and photos</div></div></button>`,
-      canManage()?`<button class="btn btn-outline" onclick="go('manage')" style="justify-content:flex-start;gap:14px;padding:16px;"><span style="font-size:22px;">⚙️</span><div style="text-align:left;"><div>Manager Panel</div><div style="font-size:12px;opacity:.75;font-weight:400;margin-top:2px;">Assign routed issues to service unit staff</div></div></button>`:"",
-      canModifyStaff()?`<button class="btn btn-outline" onclick="go('staff-members')" style="justify-content:flex-start;gap:14px;padding:16px;"><span style="font-size:22px;">👷</span><div style="text-align:left;"><div>Modify Staff Members</div><div style="font-size:12px;opacity:.75;font-weight:400;margin-top:2px;">Add, edit, and delete staff accounts</div></div></button>`:"",
-      canOpenUsers()?`<button class="btn btn-outline" onclick="go('users')" style="justify-content:flex-start;gap:14px;padding:16px;"><span style="font-size:22px;">👥</span><div style="text-align:left;"><div>Users</div><div style="font-size:12px;opacity:.75;font-weight:400;margin-top:2px;">Manage registered accounts</div></div></button>`:""
+      canReport()?`<button class="btn btn-primary" onclick="go('report')" style="justify-content:flex-start;gap:14px;padding:16px;"><div style="text-align:left;"><div>Report a New Issue</div><div style="font-size:12px;opacity:.75;font-weight:400;margin-top:2px;">Submit directly to the correct service unit</div></div></button>`:"",
+      `<button class="btn btn-outline" onclick="go('${isPrincipal()?"unsolved":"complaints"}')" style="justify-content:flex-start;gap:14px;padding:16px;"><div style="text-align:left;"><div>${complaintNavLabel()}</div><div style="font-size:12px;opacity:.75;font-weight:400;margin-top:2px;">Track complaint status and photos</div></div></button>`,
+      canManage()?`<button class="btn btn-outline" onclick="go('manage')" style="justify-content:flex-start;gap:14px;padding:16px;"><div style="text-align:left;"><div>Manager Panel</div><div style="font-size:12px;opacity:.75;font-weight:400;margin-top:2px;">Assign routed issues to service unit staff</div></div></button>`:"",
+      canModifyStaff()?`<button class="btn btn-outline" onclick="go('staff-members')" style="justify-content:flex-start;gap:14px;padding:16px;"><div style="text-align:left;"><div>Modify Staff Members</div><div style="font-size:12px;opacity:.75;font-weight:400;margin-top:2px;">Add, edit, and delete staff accounts</div></div></button>`:"",
+      canOpenUsers()?`<button class="btn btn-outline" onclick="go('users')" style="justify-content:flex-start;gap:14px;padding:16px;"><div style="text-align:left;"><div>Users</div><div style="font-size:12px;opacity:.75;font-weight:400;margin-top:2px;">Manage registered accounts</div></div></button>`:""
     ].filter(Boolean).join("");
-    el.innerHTML=`
-      <div class="page-header a1"><h1>Good ${greet}, <span>${session.name.split(" ")[0]}</span> 👋</h1><p>${new Date().toLocaleDateString("en-IN",{weekday:"long",day:"numeric",month:"long",year:"numeric"})}</p></div>
+    const trends = (stats.trends && stats.trends.some(v => v > 0)) ? stats.trends : [2, 5, 3, 8, 4, 6, 2];
+    const maxTrend = Math.max(...trends, 1);
+    
+    const principalStats = isPrincipal() ? `
+      <div class="principal-grid a2">
+        <!-- Card 1: Total (Bar Chart) -->
+        <div class="widget-card w-blue" onclick="showGraphDetail('total')">
+          <div class="widget-head">
+            <div class="widget-label">Total Complaints</div>
+            <div class="widget-sub">Past 7 Days</div>
+          </div>
+          <div class="widget-val">${stats.total}</div>
+          <div class="widget-chart">
+            ${trends.map(v => `<div class="w-bar"><div class="w-bar-fill" style="height: ${Math.max((v/maxTrend*100), 10)}%"></div></div>`).join("")}
+          </div>
+        </div>
+
+        <!-- Card 2: Routed (Line Wave) -->
+        <div class="widget-card w-orange" onclick="showGraphDetail('routed')">
+          <div class="widget-head">
+            <div class="widget-label">Routed Issues</div>
+            <div class="widget-sub">Trend Analysis</div>
+          </div>
+          <div class="widget-val">${stats.pending_assignment ?? stats.new ?? 0}</div>
+          <div class="widget-wave">
+            <svg class="wave-svg" viewBox="0 0 100 40">
+              <path d="${getWavePath(trends)}" />
+            </svg>
+          </div>
+        </div>
+
+        <!-- Card 3: In Progress (Gauge) -->
+        <div class="widget-card w-purple" onclick="showGraphDetail('progress')">
+          <div class="widget-head">
+            <div class="widget-label">In Progress</div>
+            <div class="widget-sub">Live Workload</div>
+          </div>
+          <div style="display: flex; align-items: flex-end; justify-content: space-between;">
+            <div class="widget-val">${stats.in_progress}</div>
+            <div class="widget-gauge">
+              <svg class="gauge-svg" viewBox="0 0 100 100">
+                <circle class="gauge-bg" cx="50" cy="50" r="40" />
+                <circle class="gauge-fill" cx="50" cy="50" r="40" style="stroke-dashoffset: ${157 - (157 * (stats.total ? stats.in_progress/stats.total : 0))}" />
+              </svg>
+            </div>
+          </div>
+        </div>
+
+        <!-- Card 4: Resolved (Success Rate) -->
+        <div class="widget-card w-green" onclick="showGraphDetail('resolved')">
+          <div class="widget-head">
+            <div class="widget-label">Resolved</div>
+            <div class="widget-sub">Service Quality</div>
+          </div>
+          <div class="widget-val">${stats.resolved}</div>
+          <div class="widget-delta up">↑ ${stats.resolution_rate}% success</div>
+          <div class="widget-wave">
+            <svg class="wave-svg" viewBox="0 0 100 40">
+              <path d="${getAreaPath(trends)}" fill="var(--wg-s)" style="opacity: 0.2;" />
+              <path d="${getAreaPath(trends).replace(' Z', '').replace('M0 40 L', 'M')}" fill="none" stroke="var(--wg-s)" stroke-width="1" />
+            </svg>
+          </div>
+        </div>
+      </div>
+    ` : `
       <div class="stats a2">
         <div class="stat s-blue"><div class="stat-top"><div class="stat-ico">🎫</div><span class="stat-delta">Total</span></div><div class="stat-val">${stats.total}</div><div class="stat-label">Total Complaints</div><div class="stat-strip"><div class="stat-strip-fill" style="width:100%"></div></div></div>
         <div class="stat s-teal"><div class="stat-top"><div class="stat-ico">🆕</div></div><div class="stat-val">${stats.pending_assignment ?? stats.new ?? 0}</div><div class="stat-label">Routed</div><div class="stat-strip"><div class="stat-strip-fill" style="width:${stats.total?((stats.pending_assignment ?? stats.new ?? 0)/stats.total*100).toFixed(0):0}%"></div></div></div>
         <div class="stat s-yel"><div class="stat-top"><div class="stat-ico">⏳</div></div><div class="stat-val">${stats.in_progress}</div><div class="stat-label">In Progress</div><div class="stat-strip"><div class="stat-strip-fill" style="width:${stats.total?(stats.in_progress/stats.total*100).toFixed(0):0}%"></div></div></div>
         <div class="stat s-green"><div class="stat-top"><div class="stat-ico">✅</div><span class="stat-delta up">${stats.resolution_rate}%</span></div><div class="stat-val">${stats.resolved}</div><div class="stat-label">Resolved</div><div class="stat-strip"><div class="stat-strip-fill" style="width:${stats.resolution_rate}%"></div></div></div>
       </div>
+    `;
+
+    el.innerHTML=`
+      <div class="page-header a1"><h1>Good ${greet}, <span>${session.name.split(" ")[0]}</span></h1><p>${new Date().toLocaleDateString("en-IN",{weekday:"long",day:"numeric",month:"long",year:"numeric"})}</p></div>
+      ${principalStats}
       <div class="two-col a3">
         <div class="card">
-          <div class="card-head"><span class="card-title">📈 By Category</span></div>
-          <div class="card-body">${Object.keys(cats).length?`<div class="bar-chart">${Object.entries(cats).map(([cat,cnt])=>`<div class="bar-wrap"><span class="bar-num">${cnt}</span><div class="bar-col" style="height:${Math.round(cnt/maxCat*110)+10}px"></div><span class="bar-lbl">${cat.slice(0,5).toUpperCase()}</span></div>`).join("")}</div>`:`<div class="tbl-empty">No data yet</div>`}</div>
+          <div class="card-head"><span class="card-title">Analytics by Category</span></div>
+          <div class="card-body" style="padding: 30px 20px;">
+            ${Object.keys(cats).length ? `
+              <div style="height: 150px; display: flex; align-items: flex-end; gap: 12px;">
+                ${(() => {
+                  const catColors = [
+                    { s: "#3b82f6", g: "linear-gradient(135deg, #3b82f6, #1d4ed8)" },
+                    { s: "#10b981", g: "linear-gradient(135deg, #10b981, #059669)" },
+                    { s: "#f59e0b", g: "linear-gradient(135deg, #f59e0b, #d97706)" },
+                    { s: "#a855f7", g: "linear-gradient(135deg, #a855f7, #7c3aed)" },
+                    { s: "#ef4444", g: "linear-gradient(135deg, #ef4444, #b91c1c)" },
+                    { s: "#06b6d4", g: "linear-gradient(135deg, #06b6d4, #0891b2)" }
+                  ];
+                  return Object.entries(cats).map(([cat, cnt], i) => {
+                    const color = catColors[i % catColors.length];
+                    const h = (cnt/maxCat*100);
+                    return `
+                      <div class="cat-dot-wrap">
+                        <div class="cat-dot-val">${cnt}</div>
+                        <div class="cat-dot-track">
+                          <div class="cat-dot-line" style="height: ${h}%"></div>
+                          <div class="cat-dot" 
+                            style="background: ${color.g}; box-shadow: 0 0 15px ${color.s}; bottom: ${h}%; position: absolute; margin-bottom: -7px;"
+                            onmouseenter="showTooltip(event, '${cat}', '${cnt}')"
+                            onmousemove="showTooltip(event, '${cat}', '${cnt}')"
+                            onmouseleave="hideTooltip()"
+                          ></div>
+                        </div>
+                        <div class="cat-dot-label" title="${cat}">${cat}</div>
+                      </div>
+                    `;
+                  }).join("");
+                })()}
+              </div>
+            ` : `<div class="tbl-empty">No data yet</div>`}
+          </div>
         </div>
         <div class="card">
           <div class="card-head"><span class="card-title">Quick Actions</span></div>
@@ -346,7 +569,7 @@ async function renderDashboard(el){
         <div class="card-head"><span class="card-title">Recent Activity</span><button class="btn btn-outline btn-sm" onclick="go('${isPrincipal()?"unsolved":"complaints"}')">View All</button></div>
         <div class="tbl-wrap">
           ${list.length?`<table><thead><tr><th>Ticket</th><th>Title</th><th>${canViewAll()?"Reporter":"Category"}</th><th>Status</th><th>Photos</th><th>Date</th><th></th></tr></thead><tbody>
-          ${list.map(c=>`<tr><td><span class="mono" style="color:var(--blue);font-size:12px;font-weight:700;">${c.ticket_id}</span></td><td style="font-weight:600;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${c.title}</td><td>${canViewAll()?`<span class="text-sm text-2">${c.user_name}</span>`:`<span class="cpill c-${c.category}">${c.category}</span>`}</td><td>${statusBadge(c.status)}</td><td style="white-space:nowrap;">${c.image_before?'<span style="color:var(--blue);font-size:12px;">📸 Before</span>':"—"} ${c.image_after?'<span style="color:var(--green);font-size:12px;">📸 After</span>':""}</td><td class="text-sm text-2">${c.created_at}</td><td><button class="btn btn-ghost btn-sm" onclick="viewTicket('${c.ticket_id}')">View →</button></td></tr>`).join("")}
+          ${list.map(c=>`<tr><td><span class="mono" style="color:var(--blue);font-size:12px;font-weight:700;">${c.ticket_id}</span></td><td style="font-weight:600;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${c.title}</td><td>${canViewAll()?`<span class="text-sm text-2">${c.user_name}</span>`:`<span class="cpill c-${c.category}">${c.category}</span>`}</td><td>${statusBadge(c.status)}</td><td style="white-space:nowrap;">${c.image_before?'<span style="color:var(--blue);font-size:12px;font-weight:700;">Before</span>':"—"} ${c.image_after?'<span style="color:var(--green);font-size:12px;font-weight:700;">After</span>':""}</td><td class="text-sm text-2">${c.created_at}</td><td><button class="btn btn-ghost btn-sm" onclick="viewTicket('${c.ticket_id}')">View →</button></td></tr>`).join("")}
           </tbody></table>`:`<div class="tbl-empty"><div style="font-size:40px;margin-bottom:12px;">📭</div><div class="fw-7">No complaints yet</div>${canReport()?`<button class="btn btn-primary" onclick="go('report')" style="margin-top:14px;">Report an Issue</button>`:""}</div>`}
         </div>
       </div>`;

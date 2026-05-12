@@ -1108,11 +1108,23 @@ def get_stats():
     assigned = base.filter(Complaint.status == "assigned").count()
     inp = base.filter(Complaint.status == "in-progress").count()
     res = base.filter(Complaint.status == "resolved").count()
+    
+    # Calculate daily trends for the last 7 days
+    # For Principal, show overall campus trends for better visibility
+    trend_base = Complaint.query if user.role == "principal" else base
+    trends = []
+    today = datetime.utcnow().date()
+    for i in range(6, -1, -1):
+        day = today - timedelta(days=i)
+        day_str = day.strftime("%Y-%m-%d")
+        count = trend_base.filter(db.func.strftime("%Y-%m-%d", Complaint.created_at) == day_str).count()
+        trends.append(count)
+
     cats = {}
     for c in base.all():
         cats[c.category] = cats.get(c.category, 0) + 1
     return jsonify({"total":total,"pending_assignment":pending,"assigned":assigned,"new":pending,
-                    "in_progress":inp,"resolved":res,"categories":cats,
+                    "in_progress":inp,"resolved":res,"categories":cats,"trends":trends,
                     "total_users":User.query.count() if user.role=="admin" else None,
                     "resolution_rate":round((res/total*100) if total else 0,1)})
 
