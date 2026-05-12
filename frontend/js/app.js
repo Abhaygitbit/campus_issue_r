@@ -13,6 +13,20 @@ let section = "dashboard";
 
 
 
+function showTooltip(e, title, val) {
+  const t = document.getElementById("chart-tooltip");
+  if (!t) return;
+  t.innerHTML = `<div class="chart-tooltip-title">${title}</div><div class="chart-tooltip-val">${val} Complaints</div>`;
+  t.classList.add("show");
+  t.style.left = (e.clientX + 15) + "px";
+  t.style.top = (e.clientY - 40) + "px";
+}
+
+function hideTooltip() {
+  const t = document.getElementById("chart-tooltip");
+  if (t) t.classList.remove("show");
+}
+
 const getWavePath = (data) => {
   const maxTrend = Math.max(...data, 1);
   const width = 100;
@@ -436,13 +450,36 @@ async function renderDashboard(el){
     if(badge&&canManage()&&stats.new>0){badge.style.display="";badge.textContent=stats.new;}
     const cats=stats.categories||{}; const maxCat=Math.max(...Object.values(cats),1);
     const hr=new Date().getHours(); const greet=hr<12?"morning":hr<17?"afternoon":"evening";
-    const quickActions = [
-      canReport()?`<button class="btn btn-primary" onclick="go('report')" style="justify-content:flex-start;gap:14px;padding:16px;"><div style="text-align:left;"><div>Report a New Issue</div><div style="font-size:12px;opacity:.75;font-weight:400;margin-top:2px;">Submit directly to the correct service unit</div></div></button>`:"",
-      `<button class="btn btn-outline" onclick="go('${isPrincipal()?"unsolved":"complaints"}')" style="justify-content:flex-start;gap:14px;padding:16px;"><div style="text-align:left;"><div>${complaintNavLabel()}</div><div style="font-size:12px;opacity:.75;font-weight:400;margin-top:2px;">Track complaint status and photos</div></div></button>`,
-      canManage()?`<button class="btn btn-outline" onclick="go('manage')" style="justify-content:flex-start;gap:14px;padding:16px;"><div style="text-align:left;"><div>Manager Panel</div><div style="font-size:12px;opacity:.75;font-weight:400;margin-top:2px;">Assign routed issues to service unit staff</div></div></button>`:"",
-      canModifyStaff()?`<button class="btn btn-outline" onclick="go('staff-members')" style="justify-content:flex-start;gap:14px;padding:16px;"><div style="text-align:left;"><div>Modify Staff Members</div><div style="font-size:12px;opacity:.75;font-weight:400;margin-top:2px;">Add, edit, and delete staff accounts</div></div></button>`:"",
-      canOpenUsers()?`<button class="btn btn-outline" onclick="go('users')" style="justify-content:flex-start;gap:14px;padding:16px;"><div style="text-align:left;"><div>Users</div><div style="font-size:12px;opacity:.75;font-weight:400;margin-top:2px;">Manage registered accounts</div></div></button>`:""
-    ].filter(Boolean).join("");
+    const quickActions = `
+      <div class="quick-action-grid">
+        ${canReport() ? `
+          <div class="q-action-tile" onclick="go('report')">
+            <div class="q-action-ico">➕</div>
+            <div class="q-action-label">Report Issue</div>
+          </div>
+        ` : ""}
+        <div class="q-action-tile" onclick="go('${isPrincipal() ? "unsolved" : "complaints"}')">
+          <div class="q-action-ico">📋</div>
+          <div class="q-action-label">${isPrincipal() ? "Unsolved" : "My Issues"}</div>
+        </div>
+        ${canModifyStaff() ? `
+          <div class="q-action-tile" onclick="go('staff-members')">
+            <div class="q-action-ico">👥</div>
+            <div class="q-action-label">Staff</div>
+          </div>
+        ` : ""}
+        ${canOpenUsers() ? `
+          <div class="q-action-tile" onclick="go('users')">
+            <div class="q-action-ico">🔑</div>
+            <div class="q-action-label">Users</div>
+          </div>
+        ` : ""}
+        <div class="q-action-tile" onclick="go('profile')">
+          <div class="q-action-ico">👤</div>
+          <div class="q-action-label">Profile</div>
+        </div>
+      </div>
+    `;
     const trends = (stats.trends && stats.trends.some(v => v > 0)) ? stats.trends : [2, 5, 3, 8, 4, 6, 2];
     const maxTrend = Math.max(...trends, 1);
     
@@ -730,26 +767,55 @@ async function renderUnsolved(el){
   try {
     const data=await api("complaints?scope=principal-unsolved");
     const list=data.data||[];
-    el.innerHTML=`
-      <div class="page-header a1"><h1>Unsolved <span>Problems</span></h1><p>Issues that crossed 48 hours after assignment or were escalated</p></div>
-      <div style="display:grid;gap:16px;" class="a2">
-        ${list.length?list.map(c=>`
-          <div class="card">
-            <div class="card-head"><div><div class="mono" style="font-size:12px;color:var(--blue);font-weight:700;">${c.ticket_id}</div><div class="card-title">${c.title}</div></div>${statusBadge(c.status)}</div>
-            <div class="card-body">
-              <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--r-sm);padding:14px;margin-bottom:14px;color:var(--text-1);line-height:1.7;">
-                This issue has crossed 48 hours after assignment. Manager <strong>${c.assigned_manager_name||"Unknown Manager"}</strong> from <strong>${c.service_unit_name||"Unknown Service Unit"}</strong> assigned it to <strong>${c.assigned_staff_name||"Not assigned"}</strong>. Complaint raised by <strong>${c.user_name||"Unknown Reporter"}</strong> from <strong>${c.reporter_academic_department||c.user_dept||"Unknown Department"}</strong>.
+    el.innerHTML = `
+      <div class="page-header a1">
+        <h1>Unsolved <span>Problems</span></h1>
+        <p>Issues across all departments that have exceeded the 48-hour resolution window</p>
+      </div>
+      
+      ${list.length ? `
+        <div class="unsolved-grid a2">
+          ${list.map(c => `
+            <div class="unsolved-card">
+              <div class="unsolved-card-header">
+                <div class="unsolved-id">${c.ticket_id}</div>
+                <div class="unsolved-time">
+                  <span style="font-size:14px;">🚨</span> ESCALATED
+                </div>
               </div>
-              <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-bottom:12px;">
-                ${[["Service Unit",c.service_unit_name||"—"],["Manager",c.assigned_manager_name||"—"],["Staff",c.assigned_staff_name||"Not assigned"],["Academic Department",c.reporter_academic_department||c.user_dept||"—"]].map(([k,v])=>`<div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--r-sm);padding:11px;"><div class="label" style="font-size:10px;margin-bottom:3px;">${k}</div><div class="fw-7" style="font-size:13.5px;">${v}</div></div>`).join("")}
+              
+              <div class="unsolved-title">${c.title}</div>
+              
+              <div class="unsolved-meta">
+                <div class="unsolved-meta-item">
+                  <div class="unsolved-meta-ico">🏢</div>
+                  <div><strong>${c.service_unit_name || "Unassigned Unit"}</strong></div>
+                </div>
+                <div class="unsolved-meta-item">
+                  <div class="unsolved-meta-ico">👨‍💼</div>
+                  <div>Manager: <strong>${c.assigned_manager_name || "Pending"}</strong></div>
+                </div>
+                <div class="unsolved-meta-item">
+                  <div class="unsolved-meta-ico">👤</div>
+                  <div>Reporter: <strong>${c.user_name}</strong></div>
+                </div>
               </div>
-              <div style="display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap;">
-                <div class="text-sm text-2">${c.description}</div>
-                <button class="btn btn-outline btn-sm" onclick="viewTicket('${c.ticket_id}')">View Details</button>
+              
+              <div class="unsolved-footer">
+                <button class="btn btn-primary btn-sm btn-full" onclick="viewTicket('${c.ticket_id}')">Take Action</button>
+                <button class="btn btn-outline btn-sm" onclick="viewTicket('${c.ticket_id}')">Details</button>
               </div>
             </div>
-          </div>`).join(""):`<div class="card" style="padding:44px;text-align:center;"><div class="fw-7" style="font-size:20px;">No unsolved problems right now.</div></div>`}
-      </div>`;
+          `).join("")}
+        </div>
+      ` : `
+        <div class="card a2" style="padding:60px; text-align:center;">
+          <div style="font-size:50px; margin-bottom:20px;">✅</div>
+          <div class="fw-7" style="font-size:22px; color:var(--text-1);">All systems normal!</div>
+          <p class="text-3" style="margin-top:10px;">There are no unsolved problems requiring your immediate attention.</p>
+        </div>
+      `}
+    `;
   } catch(e){el.innerHTML=serverDownBanner();}
 }
 
