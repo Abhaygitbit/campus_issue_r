@@ -17,14 +17,57 @@ function showTooltip(e, title, val) {
   const t = document.getElementById("chart-tooltip");
   if (!t) return;
   t.innerHTML = `<div class="chart-tooltip-title">${title}</div><div class="chart-tooltip-val">${val} Complaints</div>`;
-  t.classList.add("show");
+  t.className = "chart-tooltip show";
   t.style.left = (e.clientX + 15) + "px";
   t.style.top = (e.clientY - 40) + "px";
 }
 
+function showTableTooltip(e, id, title, category, status, reporter, desc, date) {
+  const t = document.getElementById("chart-tooltip");
+  if (!t) return;
+  
+  const shortDesc = desc && desc.length > 120 ? desc.substring(0, 120) + "..." : (desc || "No description provided.");
+  
+  t.innerHTML = `
+    <div class="tt-head">
+      <span class="tt-id">${id}</span>
+      <span class="tt-status">${status}</span>
+    </div>
+    <div class="tt-title">${title}</div>
+    <div class="tt-meta">
+      <div class="tt-meta-item">
+        <span class="tt-meta-lbl">Category:</span>
+        <span class="tt-meta-val">${category}</span>
+      </div>
+      <div class="tt-meta-item">
+        <span class="tt-meta-lbl">Reporter:</span>
+        <span class="tt-meta-val">${reporter || 'Student/Faculty'}</span>
+      </div>
+      <div class="tt-meta-item">
+        <span class="tt-meta-lbl">Date:</span>
+        <span class="tt-meta-val" style="font-family: var(--mono); font-size: 11px;">${date || 'Recent'}</span>
+      </div>
+      <div style="margin-top: 6px; padding-top: 6px; border-top: 1px dashed rgba(255,255,255,0.1); font-size: 11.5px; color: #94a3b8; line-height: 1.4;">
+        ${shortDesc}
+      </div>
+    </div>
+  `;
+  t.className = "chart-tooltip table-tooltip show";
+  
+  // Adjust position to stay within viewport
+  const tooltipWidth = 300; // slightly wider for description
+  let left = e.clientX + 15;
+  if (left + tooltipWidth > window.innerWidth) {
+    left = e.clientX - tooltipWidth - 15;
+  }
+  
+  t.style.left = left + "px";
+  t.style.top = (e.clientY + 15) + "px";
+}
+
 function hideTooltip() {
   const t = document.getElementById("chart-tooltip");
-  if (t) t.classList.remove("show");
+  if (t) t.className = "chart-tooltip";
 }
 
 const getWavePath = (data) => {
@@ -351,12 +394,15 @@ function renderApp(){
     <div class="shell">
       <aside class="sidebar" id="sidebar">
         <div class="sidebar-head">
-          <div class="sidebar-brand">
+          <div class="sidebar-brand" onclick="window.location.href='/'" style="cursor: pointer;" title="Go to Dashboard">
             <div class="sidebar-cdgi-logo">
               <img src="images/logo.jpg" alt="CDGI logo">
             </div>
             <div class="sidebar-brand-text"><div class="s-name">CDGI · CIRS</div><div class="s-sub">Campus Portal </div></div>
           </div>
+          <button class="sidebar-collapse-btn" onclick="toggleSidebarCollapse()" title="Collapse Sidebar">
+            <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+          </button>
         </div>
         <nav class="nav">
           ${staffLimited?`
@@ -420,6 +466,11 @@ function renderApp(){
     <div class="overlay" id="overlay" onclick="closeModal()"><div class="modal" id="modal" onclick="event.stopPropagation()"></div></div>
     <div class="toasts" id="toasts"></div>
     <div id="chart-tooltip" class="chart-tooltip"></div>`;
+  
+  if (localStorage.getItem('cirs_sidebar_collapsed') === 'true') {
+    document.querySelector('.shell').classList.add('collapsed');
+  }
+
   go("dashboard");
   loadNotifications();
   document.addEventListener("click",e=>{const d=document.getElementById("notif-drop"),b=document.getElementById("notif-btn");if(d&&b&&!d.contains(e.target)&&!b.contains(e.target))d.classList.remove("open");});
@@ -427,6 +478,16 @@ function renderApp(){
 
 function toggleSidebar(){document.getElementById("sidebar")?.classList.toggle("open");document.getElementById("sidebar-overlay")?.classList.toggle("show");}
 function closeSidebar(){document.getElementById("sidebar")?.classList.remove("open");document.getElementById("sidebar-overlay")?.classList.remove("show");}
+
+function toggleSidebarCollapse() {
+  const shell = document.querySelector('.shell');
+  if (shell) {
+    shell.classList.toggle('collapsed');
+    // Save preference
+    localStorage.setItem('cirs_sidebar_collapsed', shell.classList.contains('collapsed'));
+  }
+}
+
 function go(s){
   section=s;
   document.querySelectorAll(".nav-item").forEach(el=>el.classList.toggle("active",el.dataset.s===s));
@@ -605,9 +666,25 @@ async function renderDashboard(el){
       <div class="card a4">
         <div class="card-head"><span class="card-title">Recent Activity</span><button class="btn btn-outline btn-sm" onclick="go('${isPrincipal()?"unsolved":"complaints"}')">View All</button></div>
         <div class="tbl-wrap">
-          ${list.length?`<table><thead><tr><th>Ticket</th><th>Title</th><th>${canViewAll()?"Reporter":"Category"}</th><th>Status</th><th>Photos</th><th>Date</th><th></th></tr></thead><tbody>
-          ${list.map(c=>`<tr><td><span class="mono" style="color:var(--blue);font-size:12px;font-weight:700;">${c.ticket_id}</span></td><td style="font-weight:600;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${c.title}</td><td>${canViewAll()?`<span class="text-sm text-2">${c.user_name}</span>`:`<span class="cpill c-${c.category}">${c.category}</span>`}</td><td>${statusBadge(c.status)}</td><td style="white-space:nowrap;">${c.image_before?'<span style="color:var(--blue);font-size:12px;font-weight:700;">Before</span>':"—"} ${c.image_after?'<span style="color:var(--green);font-size:12px;font-weight:700;">After</span>':""}</td><td class="text-sm text-2">${c.created_at}</td><td><button class="btn btn-ghost btn-sm" onclick="viewTicket('${c.ticket_id}')">View →</button></td></tr>`).join("")}
-          </tbody></table>`:`<div class="tbl-empty"><div style="font-size:40px;margin-bottom:12px;">📭</div><div class="fw-7">No complaints yet</div>${canReport()?`<button class="btn btn-primary" onclick="go('report')" style="margin-top:14px;">Report an Issue</button>`:""}</div>`}
+          ${list.length?`<table style="font-size: 14.5px;">
+            <thead><tr><th>Ticket</th><th>Title</th><th>${canViewAll()?"Reporter":"Category"}</th><th>Status</th><th>Photos</th><th>Date</th><th></th></tr></thead>
+            <tbody>
+              ${list.map(c=>`<tr style="transition: background 0.2s; cursor: pointer;" 
+                onmouseenter="showTableTooltip(event, '${c.ticket_id}', '${(c.title||'').replace(/'/g,"\\'")}', '${c.category||'General'}', '${c.status}', '${(c.user_name||'').replace(/'/g,"\\'")}', '${(c.description||'').replace(/'/g,"\\'")}', '${c.created_at}')" 
+                onmousemove="showTableTooltip(event, '${c.ticket_id}', '${(c.title||'').replace(/'/g,"\\'")}', '${c.category||'General'}', '${c.status}', '${(c.user_name||'').replace(/'/g,"\\'")}', '${(c.description||'').replace(/'/g,"\\'")}', '${c.created_at}')" 
+                onmouseleave="hideTooltip()"
+                onclick="viewTicket('${c.ticket_id}')"
+              >
+                <td style="padding: 16px 12px;"><span class="mono" style="color:var(--blue);font-size:13px;font-weight:800;">${c.ticket_id}</span></td>
+                <td style="font-weight:600;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding: 16px 12px;">${c.title}</td>
+                <td style="padding: 16px 12px;">${canViewAll()?`<span style="font-size:13px;color:var(--text-2);font-weight:500;">${c.user_name}</span>`:`<span class="cpill c-${c.category}" style="font-size:12px;padding:4px 10px;">${c.category}</span>`}</td>
+                <td style="padding: 16px 12px;">${statusBadge(c.status)}</td>
+                <td style="white-space:nowrap;padding: 16px 12px;">${c.image_before?'<span style="color:var(--blue);font-size:12px;font-weight:700;">Before</span>':"—"} ${c.image_after?'<span style="color:var(--green);font-size:12px;font-weight:700;">After</span>':""}</td>
+                <td style="font-size:13px;color:var(--text-2);padding: 16px 12px;">${c.created_at}</td>
+                <td style="padding: 16px 12px;"><button class="btn btn-ghost btn-sm" onclick="event.stopPropagation(); viewTicket('${c.ticket_id}')">View →</button></td>
+              </tr>`).join("")}
+            </tbody>
+          </table>`:`<div class="tbl-empty"><div style="font-size:40px;margin-bottom:12px;">📭</div><div class="fw-7">No complaints yet</div>${canReport()?`<button class="btn btn-primary" onclick="go('report')" style="margin-top:14px;">Report an Issue</button>`:""}</div>`}
         </div>
       </div>`;
   } catch(e){el.innerHTML=serverDownBanner();}
@@ -911,14 +988,14 @@ async function uploadAfterPhoto(ticketId){
     const data=await res.json();
     if(!res.ok) throw new Error(data.error);
     toast("✅ "+data.message,"ok");
-    window._afterFiles=null; closeModal(); go(section);
+    window._afterFiles=null; closeModal(); setTimeout(() => window.location.reload(), 1000);
   } catch(e){toast(e.message,"err");btn.disabled=false;btn.innerHTML="Upload & Mark Resolved";}
 }
 
 async function assignTicket(tid){
   const staffId=document.getElementById("assign-staff-select")?.value;
   if(!staffId){toast("Select staff member first","err");return;}
-  try{const d=await api(`complaints/${tid}/assign`,"POST",{assigned_staff_id:Number(staffId)});toast(d.message||"Assigned successfully.","ok");closeModal();go(section);}
+  try{const d=await api(`complaints/${tid}/assign`,"POST",{assigned_staff_id:Number(staffId)});toast(d.message||"Assigned successfully.","ok");closeModal();setTimeout(() => window.location.reload(), 1000);}
   catch(e){toast(e.message,"err");}
 }
 
@@ -939,16 +1016,16 @@ async function loadStaffOptions(selectedId=null){
   }
 }
 async function updateTicketStatus(tid,status){
-  try{await api(`complaints/${tid}`,"PUT",{status});toast(`Status → ${status}`,"ok");closeModal();go(section);}
+  try{await api(`complaints/${tid}`,"PUT",{status});toast(`Status → ${status}`,"ok");closeModal();setTimeout(() => window.location.reload(), 1000);}
   catch(e){toast(e.message,"err");}
 }
 async function deleteTicket(tid){
   if(!confirm(`Delete ${tid}? Cannot undo.`)) return;
-  try{await api(`complaints/${tid}`,"DELETE");toast(`${tid} deleted`,"ok");closeModal();go(section);}
+  try{await api(`complaints/${tid}`,"DELETE");toast(`${tid} deleted`,"ok");closeModal();setTimeout(() => window.location.reload(), 1000);}
   catch(e){toast(e.message,"err");}
 }
 async function submitFeedback(tid,rating){
-  try{await api(`complaints/${tid}`,"PUT",{feedback:rating});toast("Feedback submitted! ⭐","ok");closeModal();go(section);}
+  try{await api(`complaints/${tid}`,"PUT",{feedback:rating});toast("Feedback submitted! ⭐","ok");closeModal();setTimeout(() => window.location.reload(), 1000);}
   catch(e){toast(e.message,"err");}
 }
 
