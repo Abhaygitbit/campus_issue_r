@@ -1233,3 +1233,78 @@ tr:hover td { background: #f0f7ff; }
 :root {
   --grad-red: linear-gradient(135deg, #ef4444, #b91c1c);
 }
+
+/* ═══════════════════════════════
+   PROFILE SLIDING LAYOUT
+═══════════════════════════════ */
+.profile-layout {
+  display: flex;
+  gap: 0;
+  align-items: stretch;
+  transition: gap 0.4s var(--ease);
+}
+
+.profile-layout.editing {
+  gap: 24px;
+}
+
+.profile-left {
+  flex: 1;
+  min-width: 0;
+  transition: all 0.4s var(--ease);
+}
+
+.profile-right {
+  width: 0;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateX(20px);
+  transition: all 0.4s var(--ease);
+  flex-shrink: 0;
+}
+
+.profile-layout.editing .profile-right {
+  width: 380px;
+  opacity: 1;
+  visibility: visible;
+  transform: translateX(0);
+}
+
+/* ═══════════════════════════════
+   NEW PROFILE HERO (Social-like Stats)
+═══════════════════════════════ */
+.stat-btn {
+  display: flex;
+  align-items: center;
+  background: #1e2338; /* Dark navy/purple matching reference */
+  color: #fff;
+  padding: 14px 20px;
+  border-radius: 16px;
+  font-family: 'Inter', sans-serif;
+  transition: transform 0.2s, background 0.2s;
+  cursor: default;
+}
+.stat-btn:hover {
+  transform: translateY(-2px);
+  background: #2a304a;
+}
+.stat-btn-ico {
+  font-size: 22px;
+  opacity: 0.8;
+  margin-right: 16px;
+}
+.stat-btn-lbl {
+  font-size: 15px;
+  font-weight: 600;
+  color: #c7d2fe; /* Light purple tint */
+  flex: 1;
+  text-align: left;
+}
+.stat-btn-val {
+  font-size: 18px;
+  font-weight: 800;
+  color: #fff;
+}
+#edit-profile-floating-btn:hover {
+  transform: rotate(45deg) scale(1.1);
+}

@@ -83,6 +83,11 @@ def ensure_db_schema():
             if not inspector.has_table("complaints"):
                 return
 
+            cols = {c["name"] for c in inspector.get_columns("users")}
+            stmts_u = []
+            if "profile_image" not in cols:
+                stmts_u.append("ALTER TABLE users ADD COLUMN profile_image VARCHAR(300)")
+            
             cols = {c["name"] for c in inspector.get_columns("complaints")}
             stmts = []
             if "service_unit_id" not in cols:
@@ -96,9 +101,9 @@ def ensure_db_schema():
             if "assigned_by_manager_id" not in cols:
                 stmts.append("ALTER TABLE complaints ADD COLUMN assigned_by_manager_id INTEGER")
 
-            if stmts:
+            if stmts_u or stmts:
                 with db.engine.begin() as conn:
-                    for stmt in stmts:
+                    for stmt in stmts_u + stmts:
                         conn.execute(text(stmt))
         except Exception as e:
             print(f"Database schema check: {e}")
@@ -121,12 +126,14 @@ class User(db.Model):
     created_at=db.Column(db.DateTime,default=datetime.utcnow)
     service_unit_id=db.Column(db.Integer)
     academic_department=db.Column(db.String(100))
+    profile_image=db.Column(db.String(300))
     complaints=db.relationship("Complaint",backref="reporter",lazy=True,foreign_keys="Complaint.user_id")
     assigned_complaints=db.relationship("Complaint",backref="assigned_staff",lazy=True,foreign_keys="Complaint.assigned_staff_id")
     def to_dict(self):
         return {"id":self.id,"name":self.name,"email":self.email,"role":self.role,"dept":self.dept,
                 "roll_no":self.roll_no or "","phone":self.phone or "","is_verified":self.is_verified,
                 "service_unit_id":self.service_unit_id,"academic_department":self.academic_department or "",
+                "profile_image":self.profile_image or "",
                 "created_at":self.created_at.strftime("%Y-%m-%d") if self.created_at else ""}
 
 class Complaint(db.Model):
@@ -670,6 +677,27 @@ def update_profile():
         user.password=generate_password_hash(data["password"])
     db.session.commit()
     return jsonify({"status":"success","user":user.to_dict()})
+
+@app.route("/api/profile/image", methods=["POST"])
+@jwt_required()
+def upload_profile_image():
+    user = db.session.get(User, int(get_jwt_identity()))
+    if not user: return jsonify({"error": "Not found"}), 404
+    
+    if 'image' not in request.files:
+        return jsonify({"error": "No image provided"}), 400
+        
+    file = request.files['image']
+    if file.filename == '':
+        return jsonify({"error": "No selected file"}), 400
+        
+    saved = save_upload(file, prefix=f"profile_{user.id}", image_only=True)
+    if saved:
+        user.profile_image = saved
+        db.session.commit()
+        return jsonify({"status": "success", "user": user.to_dict()})
+        
+    return jsonify({"error": "Invalid file type"}), 400
 
 @app.route("/api/staff/options", methods=["GET"])
 @jwt_required()

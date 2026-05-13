@@ -407,17 +407,17 @@ function renderApp(){
         <nav class="nav">
           ${staffLimited?`
           <div><div class="nav-section-label">My Work</div>
-            <button class="nav-item active" data-s="dashboard" onclick="go('dashboard')">Dashboard</button>
-            <button class="nav-item" data-s="complaints" onclick="go('complaints')">My Assigned Issues</button>
+            <button class="nav-item active" data-s="dashboard" onclick="go('dashboard')"><span class="nav-icon">📊</span> Dashboard</button>
+            <button class="nav-item" data-s="complaints" onclick="go('complaints')"><span class="nav-icon">📋</span> My Assigned Issues</button>
           </div>
           <div><div class="nav-section-label">Account</div>
             <button class="nav-item" data-s="profile" onclick="go('profile')"><span class="nav-icon">👤</span> Profile</button>
             <button class="nav-item" onclick="logout()"><span class="nav-icon">🚪</span> Sign Out</button>
           </div>`:`
           <div><div class="nav-section-label">Main Menu</div>
-            <button class="nav-item active" data-s="dashboard" onclick="go('dashboard')">Dashboard</button>
-            ${showReport?`<button class="nav-item" data-s="report" onclick="go('report')">Report Issue</button>`:""}
-            <button class="nav-item" data-s="${complaintSection}" onclick="go('${complaintSection}')">${complaintNavLabel()}</button>
+            <button class="nav-item active" data-s="dashboard" onclick="go('dashboard')"><span class="nav-icon">📊</span> Dashboard</button>
+            ${showReport?`<button class="nav-item" data-s="report" onclick="go('report')"><span class="nav-icon">📝</span> Report Issue</button>`:""}
+            <button class="nav-item" data-s="${complaintSection}" onclick="go('${complaintSection}')"><span class="nav-icon">📋</span> ${complaintNavLabel()}</button>
           </div>
           ${(showManage||showUsers||showStaffMembers)?`<div><div class="nav-section-label">Management</div>
             ${showManage?`<button class="nav-item" data-s="manage" onclick="go('manage')"><span class="nav-icon">⚙️</span> Manager Panel<span class="nav-badge" id="new-count" style="display:none">0</span></button>`:""}
@@ -431,7 +431,9 @@ function renderApp(){
         </nav>
         <div class="sidebar-foot">
           <div class="user-card" onclick="go('profile')">
-            <div class="avatar">${initials(session.name)}</div>
+            <div class="avatar" style="overflow:hidden; display:flex; align-items:center; justify-content:center;">
+              ${session.profile_image ? `<img src="${session.profile_image}" style="width:100%;height:100%;object-fit:cover;">` : initials(session.name)}
+            </div>
             <div class="user-info"><div class="u-name">${session.name}</div><div class="u-role">${session.role} · ${session.dept}</div></div>
           </div>
         </div>
@@ -457,7 +459,9 @@ function renderApp(){
                 <div id="notif-list"><div class="notif-empty">Loading…</div></div>
               </div>
             </div>
-            <div class="avatar" style="cursor:pointer;" onclick="go('profile')">${initials(session.name)}</div>
+            <div class="avatar" style="cursor:pointer; overflow:hidden; display:flex; align-items:center; justify-content:center;" onclick="go('profile')">
+              ${session.profile_image ? `<img src="${session.profile_image}" style="width:100%;height:100%;object-fit:cover;">` : initials(session.name)}
+            </div>
           </div>
         </header>
         <div class="content" id="page-content"></div>
@@ -1244,21 +1248,53 @@ async function renderProfile(el){
   try {
     const stats=await api("stats");
     el.innerHTML=`
-      <div class="page-header a1"><h1>My <span>Profile</span></h1></div>
-      <div class="two-col">
-        <div>
-          <div class="profile-hero a2">
-            <div class="avatar lg" style="margin:0 auto;">${initials(session.name)}</div>
-            <div class="profile-name">${session.name}</div>
-            <div class="profile-email">${session.email}</div>
-            <div style="margin-top:10px;display:flex;gap:8px;justify-content:center;">
-              <span class="badge b-${session.role}">${session.role}</span>
-              ${session.is_verified?'<span style="background:#dcfce7;color:#166534;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;border:1px solid #bbf7d0;">✅ Email Verified</span>':'<span style="background:#fef3c7;color:#92400e;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;">⚠️ Unverified</span>'}
+      <div class="page-header a1" style="display:flex; justify-content:space-between; align-items:center;">
+        <div><h1>My <span>Profile</span></h1></div>
+        <button class="btn btn-outline" id="edit-profile-btn" onclick="toggleEditProfile()" style="display:none; gap:6px; font-weight:600;"><span style="font-size:16px;">✏️</span> Edit Profile</button>
+      </div>
+      <div class="profile-layout" id="profile-layout">
+        <div class="profile-left">
+          <div class="profile-hero a2" style="background: #efeef5; border-radius: 24px; padding: 30px; position: relative; text-align: center; border: none; box-shadow: 0 10px 30px rgba(0,0,0,0.05);">
+            <!-- Settings Icon (Toggle Edit) -->
+            <button id="edit-profile-floating-btn" onclick="toggleEditProfile()" style="position: absolute; top: 20px; right: 20px; background: none; border: none; font-size: 20px; color: #7c3aed; cursor: pointer; padding: 4px; transition: transform 0.2s;">⚙️</button>
+            
+            <!-- Avatar -->
+            <div style="width: 110px; height: 110px; border-radius: 50%; overflow: hidden; margin: 0 auto 16px auto; box-shadow: 0 8px 20px rgba(0,0,0,0.15); border: 3px solid #fff; position: relative; cursor: pointer;" onclick="document.getElementById('profile-img-upload').click()">
+              ${session.profile_image 
+                 ? `<img src="${session.profile_image}" alt="Avatar" style="width: 100%; height: 100%; object-fit: cover;">`
+                 : `<div style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: var(--blue-gl); color: var(--blue); font-size: 40px; font-weight: 700;">${initials(session.name)}</div>`
+              }
+              <div style="position: absolute; bottom: 0; left: 0; right: 0; background: rgba(0,0,0,0.5); color: white; font-size: 10px; padding: 4px 0; text-align: center; text-transform: uppercase; font-weight: 700; opacity: 0; transition: opacity 0.2s;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0">Upload</div>
             </div>
-            <div class="profile-stats">
-              <div><div class="ps-val">${stats.total}</div><div class="ps-lbl">Submitted</div></div>
-              <div><div class="ps-val">${stats.resolved}</div><div class="ps-lbl">Resolved</div></div>
-              <div><div class="ps-val">${stats.in_progress}</div><div class="ps-lbl">Active</div></div>
+            <input type="file" id="profile-img-upload" style="display:none" accept="image/*" onchange="uploadProfileImage(event)">
+            
+            <!-- Name & Title -->
+            <h2 style="font-size: 22px; font-weight: 800; color: #1e293b; margin: 0 0 4px 0; letter-spacing: -0.5px;">${session.name}</h2>
+            <div style="font-size: 14px; color: #64748b; font-weight: 500; margin-bottom: 24px;">${session.email}</div>
+            
+            <!-- Badges -->
+            <div style="margin-bottom: 24px; display: flex; gap: 8px; justify-content: center;">
+              <span class="badge b-${session.role}" style="font-size: 11px;">${session.role.toUpperCase()}</span>
+              ${session.is_verified?'<span style="background:#dcfce7;color:#166534;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;">✅ Verified</span>':''}
+            </div>
+            
+            <!-- Stats as Social-like Buttons -->
+            <div style="display: flex; flex-direction: column; gap: 12px;">
+              <div class="stat-btn stat-btn-sub">
+                <span class="stat-btn-ico">📄</span>
+                <span class="stat-btn-lbl">Submitted Complaints</span>
+                <span class="stat-btn-val">${stats.total}</span>
+              </div>
+              <div class="stat-btn stat-btn-res">
+                <span class="stat-btn-ico">✅</span>
+                <span class="stat-btn-lbl">Resolved Issues</span>
+                <span class="stat-btn-val">${stats.resolved}</span>
+              </div>
+              <div class="stat-btn stat-btn-act">
+                <span class="stat-btn-ico">⏳</span>
+                <span class="stat-btn-lbl">Active & Pending</span>
+                <span class="stat-btn-val">${stats.in_progress}</span>
+              </div>
             </div>
           </div>
           <div class="card a3" style="margin-top:16px;">
@@ -1267,22 +1303,29 @@ async function renderProfile(el){
             </div>
           </div>
         </div>
-        <div class="card a2">
-          <div class="card-head"><span class="card-title">✏️ Edit Profile</span></div>
-          <div class="card-body">
-            <div id="profile-alert"></div>
-            <div class="form-group"><label class="label">Full Name</label><input id="p-name" class="input" value="${session.name}"></div>
-            <div class="form-group"><label class="label">Email (cannot change)</label><input class="input" value="${session.email}" disabled style="opacity:.5;"></div>
-            <div class="form-group">
-              <label class="label">Phone (10 digits)</label>
-              <input id="p-phone" class="input" value="${session.phone||""}" placeholder="10-digit number" maxlength="10" oninput="this.value=this.value.replace(/\D/g,'').slice(0,10)">
-              <span class="field-err" id="profile-phone-err">Must be exactly 10 digits</span>
+        <div class="profile-right" id="profile-edit-panel">
+          <div class="card" style="height: 100%; display: flex; flex-direction: column;">
+            <div class="card-head" style="display:flex; justify-content:space-between; align-items:center;">
+              <span class="card-title">✏️ Edit Profile</span>
+              <button class="btn btn-ghost btn-sm" onclick="toggleEditProfile()" style="padding:4px 8px; font-size:16px;">✕</button>
             </div>
-            <div class="divider"></div>
-            <div class="form-group"><label class="label">New Password (leave blank to keep)</label>
-              <div class="pass-wrap"><input id="p-pass" class="input" type="password" placeholder="New password…"><button class="eye-btn" onclick="toggleEye('p-pass',this)" type="button">👁️</button></div>
+            <div class="card-body" style="flex: 1; display:flex; flex-direction:column;">
+              <div id="profile-alert"></div>
+              <div class="form-group"><label class="label">Full Name</label><input id="p-name" class="input" value="${session.name}"></div>
+              <div class="form-group"><label class="label">Email (cannot change)</label><input class="input" value="${session.email}" disabled style="opacity:.5;"></div>
+              <div class="form-group">
+                <label class="label">Phone (10 digits)</label>
+                <input id="p-phone" class="input" value="${session.phone||""}" placeholder="10-digit number" maxlength="10" oninput="this.value=this.value.replace(/\\D/g,'').slice(0,10)">
+                <span class="field-err" id="profile-phone-err">Must be exactly 10 digits</span>
+              </div>
+              <div class="divider"></div>
+              <div class="form-group"><label class="label">New Password (leave blank to keep)</label>
+                <div class="pass-wrap"><input id="p-pass" class="input" type="password" placeholder="New password…"><button class="eye-btn" onclick="toggleEye('p-pass',this)" type="button">👁️</button></div>
+              </div>
+              <div style="margin-top:auto; padding-top:20px;">
+                <button class="btn btn-primary btn-full" onclick="saveProfile()" style="padding:12px; font-size:15px; border-radius:10px;">💾 Save Changes</button>
+              </div>
             </div>
-            <button class="btn btn-primary" onclick="saveProfile()">💾 Save Changes</button>
           </div>
         </div>
       </div>`;
@@ -1302,6 +1345,38 @@ async function saveProfile(){
     document.getElementById("profile-alert").innerHTML=`<div class="alert alert-ok"><span class="alert-ico">✅</span>Profile updated!</div>`;
     toast("Profile saved!","ok");
   } catch(e){toast(e.message,"err");}
+}
+
+function toggleEditProfile() {
+  const layout = document.getElementById("profile-layout");
+  const topBtn = document.getElementById("edit-profile-btn");
+  const floatBtn = document.getElementById("edit-profile-floating-btn");
+  
+  if (layout) {
+    layout.classList.toggle("editing");
+    const isEditing = layout.classList.contains("editing");
+    
+    if (topBtn) topBtn.style.display = isEditing ? "none" : "flex";
+    if (floatBtn) floatBtn.style.display = isEditing ? "none" : "inline-block";
+  }
+}
+
+async function uploadProfileImage(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  
+  const formData = new FormData();
+  formData.append("image", file);
+  
+  try {
+    const res = await api("profile/image", "POST", formData, true);
+    session = res.user;
+    localStorage.setItem("cirs_user", JSON.stringify(session));
+    toast("Profile image updated!", "ok");
+    go('profile'); // Re-render profile page
+  } catch(e) {
+    toast(e.message, "err");
+  }
 }
 
 /* ══ NOTIFICATIONS ══════════════════════════════════════════ */
