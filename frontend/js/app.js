@@ -61,8 +61,75 @@ function showTableTooltip(e, id, title, category, status, reporter, desc, date) 
     left = e.clientX - tooltipWidth - 15;
   }
   
+  let top = e.clientY + 15;
+  const tooltipHeight = t.offsetHeight || 200;
+  
+  if (top + tooltipHeight > window.innerHeight) {
+    top = e.clientY - tooltipHeight - 15;
+    if (top < 10) top = 10;
+  }
+  
   t.style.left = left + "px";
-  t.style.top = (e.clientY + 15) + "px";
+  t.style.top = top + "px";
+}
+
+function showStaffTooltipData(e, rowEl) {
+  const t = document.getElementById("chart-tooltip");
+  if (!t) return;
+  const s = JSON.parse(decodeURIComponent(rowEl.dataset.staff));
+  
+  t.innerHTML = `
+    <div class="tt-head">
+      <span class="tt-id" style="font-size: 13px;">${s.name}</span>
+      <span class="tt-status">${s.active_count > 0 ? "Active Issues" : "Available"}</span>
+    </div>
+    <div class="tt-meta">
+      <div class="tt-meta-item">
+        <span class="tt-meta-lbl">Email:</span>
+        <span class="tt-meta-val">${s.email}</span>
+      </div>
+      <div class="tt-meta-item">
+        <span class="tt-meta-lbl">Phone:</span>
+        <span class="tt-meta-val">${s.phone || '—'}</span>
+      </div>
+      <div class="tt-meta-item">
+        <span class="tt-meta-lbl">Dept:</span>
+        <span class="tt-meta-val">${s.dept || '—'}</span>
+      </div>
+      <div class="tt-meta-item">
+        <span class="tt-meta-lbl">Unit:</span>
+        <span class="tt-meta-val">${s.service_unit_name || '—'}</span>
+      </div>
+      <div class="tt-meta-item">
+        <span class="tt-meta-lbl">Assigned:</span>
+        <span class="tt-meta-val">${s.assigned_count || 0}</span>
+      </div>
+      <div class="tt-meta-item">
+        <span class="tt-meta-lbl">In Prog:</span>
+        <span class="tt-meta-val">${s.active_count || 0}</span>
+      </div>
+      <div class="tt-meta-item">
+        <span class="tt-meta-lbl">Joined:</span>
+        <span class="tt-meta-val" style="font-family: var(--mono); font-size: 11px;">${s.created_at || '—'}</span>
+      </div>
+    </div>
+  `;
+  t.className = "chart-tooltip table-tooltip show";
+  
+  const tooltipWidth = 280;
+  let left = e.clientX + 15;
+  if (left + tooltipWidth > window.innerWidth) left = e.clientX - tooltipWidth - 15;
+  
+  let top = e.clientY + 15;
+  const tooltipHeight = t.offsetHeight || 250; // Fallback height if offsetHeight isn't ready
+  
+  if (top + tooltipHeight > window.innerHeight) {
+    top = e.clientY - tooltipHeight - 15;
+    if (top < 10) top = 10;
+  }
+  
+  t.style.left = left + "px";
+  t.style.top = top + "px";
 }
 
 function hideTooltip() {
@@ -107,6 +174,26 @@ const getAreaPath = (data) => {
   d += ` T ${points[points.length-1].x} ${points[points.length-1].y}`;
   d += ` L${width} ${height} Z`;
   return d;
+};
+
+const getTrendData = (list) => {
+  const trend = [0,0,0,0,0,0,0];
+  const today = new Date();
+  today.setHours(0,0,0,0);
+  
+  list.forEach(c => {
+    if (!c.created_at) return;
+    const [y, m, d] = c.created_at.split('-');
+    if (!y || !m || !d) return;
+    const dateObj = new Date(y, m - 1, d.split(' ')[0]); // Handle 'YYYY-MM-DD HH:MM' format just in case
+    dateObj.setHours(0,0,0,0);
+    const diffDays = Math.floor((today - dateObj) / (1000 * 60 * 60 * 24));
+    
+    if (diffDays >= 0 && diffDays < 7) {
+      trend[6 - diffDays]++;
+    }
+  });
+  return trend;
 };
 
 async function showGraphDetail(type) {
@@ -545,7 +632,7 @@ async function renderDashboard(el){
         </div>
       </div>
     `;
-    const trends = (stats.trends && stats.trends.some(v => v > 0)) ? stats.trends : [2, 5, 3, 8, 4, 6, 2];
+    const trends = stats.trends || [0,0,0,0,0,0,0];
     const maxTrend = Math.max(...trends, 1);
     
     const principalStats = `
@@ -695,54 +782,62 @@ function renderReport(el){
   }
   el.innerHTML=`
     <div class="page-header a1"><h1>Report <span>Issue</span></h1><p>Submit a campus complaint — 📧 email confirmation will be sent automatically</p></div>
-    <div style="max-width:720px;">
-      <div class="card a2">
-        <div class="card-head"><span class="card-title">🎫 Complaint Details</span></div>
-        <div class="card-body">
-          <div id="report-alert"></div>
-          <div class="form-group"><label class="label">Issue Title <span class="req">*</span></label><input id="r-title" class="input" placeholder="e.g. Broken light in Lab-2, No water in Hostel Block B"></div>
-          <div class="form-row">
-            <div class="form-group"><label class="label">Category <span class="req">*</span></label>
-              <select id="r-cat" class="select"><option value="">— Loading categories…</option></select>
+    <div style="display: flex; gap: 24px; align-items: flex-start; flex-wrap: wrap;">
+      
+      <!-- Left Column: Form -->
+      <div style="flex: 1; min-width: 320px; max-width: 720px;">
+        <div class="card a2">
+          <div class="card-head"><span class="card-title">🎫 Complaint Details</span></div>
+          <div class="card-body">
+            <div id="report-alert"></div>
+            <div class="form-group"><label class="label">Issue Title <span class="req">*</span></label><input id="r-title" class="input" placeholder="e.g. Broken light in Lab-2, No water in Hostel Block B"></div>
+            <div class="form-row">
+              <div class="form-group"><label class="label">Category <span class="req">*</span></label>
+                <select id="r-cat" class="select"><option value="">— Loading categories…</option></select>
+              </div>
             </div>
-          </div>
-          <div class="form-group"><label class="label">Location / Block</label><input id="r-location" class="input" placeholder="e.g. Main Block, 2nd Floor, Near Lab-204"></div>
-          <div class="form-group"><label class="label">Detailed Description <span class="req">*</span></label><textarea id="r-desc" class="textarea" rows="4" placeholder="Describe the issue in detail…"></textarea></div>
-          <div class="form-group">
-            <label class="label">📸 Before Photo — Evidence of Issue (Optional)</label>
-            <div class="file-zone" id="file-zone" onclick="document.getElementById('r-file').click()">
-              <div class="file-zone-ico">📷</div>
-              <div class="file-zone-txt"><strong>Click to browse</strong> or drag & drop</div>
-              <div class="file-zone-hint">Upload photo/video showing the issue · JPG·PNG·MP4 · max 32MB</div>
+            <div class="form-group"><label class="label">Location / Block</label><input id="r-location" class="input" placeholder="e.g. Main Block, 2nd Floor, Near Lab-204"></div>
+            <div class="form-group"><label class="label">Detailed Description <span class="req">*</span></label><textarea id="r-desc" class="textarea" rows="4" placeholder="Describe the issue in detail…"></textarea></div>
+            <div class="form-group">
+              <label class="label">📸 Before Photo — Evidence of Issue (Optional)</label>
+              <div class="file-zone" id="file-zone" onclick="document.getElementById('r-file').click()">
+                <div class="file-zone-ico">📷</div>
+                <div class="file-zone-txt"><strong>Click to browse</strong> or drag & drop</div>
+                <div class="file-zone-hint">Upload photo/video showing the issue · JPG·PNG·MP4 · max 32MB</div>
+              </div>
+              <input type="file" id="r-file" style="display:none" accept="image/*,video/*,.pdf" onchange="handleFile(event)">
+              <div id="file-preview"></div>
             </div>
-            <input type="file" id="r-file" style="display:none" accept="image/*,video/*,.pdf" onchange="handleFile(event)">
-            <div id="file-preview"></div>
-          </div>
-          <div style="display:flex;gap:10px;margin-top:8px;">
-            <button class="btn btn-primary btn-lg" id="submit-btn" onclick="submitComplaint()" style="flex:1;">🚀 Submit Complaint</button>
-            <button class="btn btn-outline btn-lg" onclick="go(isStaff()?'complaints':'dashboard')">Cancel</button>
-          </div>
-        </div>
-      </div>
-      <div class="card a3" style="margin-top:16px;">
-        <div class="card-body">
-          <p style="font-size:14px;color:var(--text-2);margin-bottom:14px;font-weight:600;">📧 Email Notification Flow:</p>
-          <div style="display:grid;gap:8px;font-size:13px;">
-            <div style="display:flex;align-items:center;gap:10px;padding:10px;background:var(--surface2);border-radius:8px;border-left:3px solid var(--blue);">
-              <span style="font-size:18px;">1️⃣</span><div><strong>You submit complaint</strong><br><span style="color:var(--text-3);">→ Auto email sent: "Complaint Routed"</span></div>
-            </div>
-            <div style="display:flex;align-items:center;gap:10px;padding:10px;background:var(--surface2);border-radius:8px;border-left:3px solid var(--yellow);">
-              <span style="font-size:18px;">2️⃣</span><div><strong>Service Unit Manager assigns to staff</strong><br><span style="color:var(--text-3);">→ Auto email: "Issue Assigned to You"</span></div>
-            </div>
-            <div style="display:flex;align-items:center;gap:10px;padding:10px;background:var(--surface2);border-radius:8px;border-left:3px solid var(--orange);">
-              <span style="font-size:18px;">3️⃣</span><div><strong>Staff marks In Progress or Resolved</strong><br><span style="color:var(--text-3);">→ Auto email: "Status Update"</span></div>
-            </div>
-            <div style="display:flex;align-items:center;gap:10px;padding:10px;background:var(--surface2);border-radius:8px;border-left:3px solid var(--green);">
-              <span style="font-size:18px;">4️⃣</span><div><strong>Staff uploads After Photo → Resolved</strong><br><span style="color:var(--text-3);">→ Auto email: "Issue Resolved" + After photo</span></div>
+            <div style="display:flex;gap:10px;margin-top:8px;">
+              <button class="btn btn-primary btn-lg" id="submit-btn" onclick="submitComplaint()" style="flex:1;">🚀 Submit Complaint</button>
+              <button class="btn btn-outline btn-lg" onclick="go(isStaff()?'complaints':'dashboard')">Cancel</button>
             </div>
           </div>
         </div>
       </div>
+      
+      <!-- Right Column: Email Flow -->
+      <div class="card a3" style="width: 380px; flex-shrink: 0; position: sticky; top: 80px;">
+        <div class="card-head"><span class="card-title">📧 Email Notification Flow</span></div>
+        <div class="card-body">
+          <p style="font-size:13px;color:var(--text-2);margin-bottom:16px;">This system automatically sends updates to your registered email address at each stage of the resolution process.</p>
+          <div style="display:grid;gap:12px;font-size:13px;">
+            <div style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--surface2);border-radius:10px;border-left:4px solid var(--blue);">
+              <span style="font-size:20px;">1️⃣</span><div><strong>You submit complaint</strong><br><span style="color:var(--text-3);font-size:12px;">→ Auto email sent: "Complaint Routed"</span></div>
+            </div>
+            <div style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--surface2);border-radius:10px;border-left:4px solid var(--yellow);">
+              <span style="font-size:20px;">2️⃣</span><div><strong>Assigned to staff</strong><br><span style="color:var(--text-3);font-size:12px;">→ Auto email: "Issue Assigned to You"</span></div>
+            </div>
+            <div style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--surface2);border-radius:10px;border-left:4px solid var(--orange);">
+              <span style="font-size:20px;">3️⃣</span><div><strong>Marked In Progress</strong><br><span style="color:var(--text-3);font-size:12px;">→ Auto email: "Status Update"</span></div>
+            </div>
+            <div style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--surface2);border-radius:10px;border-left:4px solid var(--green);">
+              <span style="font-size:20px;">4️⃣</span><div><strong>Issue Resolved</strong><br><span style="color:var(--text-3);font-size:12px;">→ Auto email: "Issue Resolved" + After photo</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      
     </div>`;
   loadCategories();
   const zone=document.getElementById("file-zone");
@@ -1035,10 +1130,89 @@ async function renderManage(el){
   try {
     const [data,stats]=await Promise.all([api("complaints"),api("stats")]);
     const list=data.data||[];
+    const routedList = list.filter(c=>c.status==="routed");
+    const assignedList = list.filter(c=>c.status==="assigned");
+    const progressList = list.filter(c=>c.status==="in-progress");
+    const resolvedList = list.filter(c=>c.status==="resolved");
+
+    const routedCount = routedList.length;
+    const assignedCount = assignedList.length;
+    const progressCount = progressList.length;
+    const resolvedCount = resolvedList.length;
+    const totalCount = list.length;
+
+    const routedTrends = getTrendData(routedList);
+    const maxRouted = Math.max(...routedTrends, 1);
+    
+    const assignedTrends = getTrendData(assignedList);
+    const maxAssigned = Math.max(...assignedTrends, 1);
+
+    const resolvedTrends = getTrendData(resolvedList);
+    const maxResolved = Math.max(...resolvedTrends, 1);
+    
     el.innerHTML=`
       <div class="page-header a1"><h1>Manager <span>Panel</span></h1><p>Review routed complaints for your service unit and assign them to staff</p></div>
-      <div class="stats a2" style="grid-template-columns:repeat(4,1fr);">
-        ${[["routed","🔀","Routed","s-teal"],["assigned","📌","Assigned","s-blue"],["in-progress","⏳","In Progress","s-yel"],["resolved","✅","Resolved","s-green"]].map(([s,ico,lbl,cls])=>`<div class="stat ${cls}"><div class="stat-top"><div class="stat-ico">${ico}</div></div><div class="stat-val">${list.filter(c=>c.status===s).length}</div><div class="stat-label">${lbl}</div></div>`).join("")}
+      <div class="principal-grid a2">
+        <!-- Card 1: Routed (Horizontal Bars) -->
+        <div class="widget-card w-teal">
+          <div class="widget-head">
+            <div class="widget-label">Routed</div>
+            <div class="widget-sub">Needs Assignment</div>
+          </div>
+          <div class="widget-val">${routedCount}</div>
+          <div class="widget-chart" style="flex-direction: column; gap: 6px; justify-content: flex-end;">
+            ${routedTrends.slice(-4).map(v => `<div style="width: 100%; height: 6px; background: var(--surface3); border-radius: 4px; overflow: hidden;"><div style="height: 100%; width: ${Math.max((v/maxRouted*100), 5)}%; background: var(--wg-s); border-radius: 4px; transition: width 1s;"></div></div>`).join("")}
+          </div>
+        </div>
+
+        <!-- Card 2: Assigned (Polygon Area) -->
+        <div class="widget-card w-blue">
+          <div class="widget-head">
+            <div class="widget-label">Assigned</div>
+            <div class="widget-sub">Pending Work</div>
+          </div>
+          <div class="widget-val">${assignedCount}</div>
+          <div class="widget-wave">
+            <svg class="wave-svg" viewBox="0 0 100 40" style="overflow:visible;">
+              <polygon points="0,40 ${assignedTrends.map((v,i) => `${i*(100/(assignedTrends.length-1))},${40 - (v/maxAssigned)*40}`).join(' ')} 100,40" fill="var(--wg-s)" style="opacity:0.2"/>
+              <polyline points="${assignedTrends.map((v,i) => `${i*(100/(assignedTrends.length-1))},${40 - (v/maxAssigned)*40}`).join(' ')}" fill="none" stroke="var(--wg-s)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+        </div>
+
+        <!-- Card 3: In Progress (Half Gauge) -->
+        <div class="widget-card w-purple">
+          <div class="widget-head">
+            <div class="widget-label">In Progress</div>
+            <div class="widget-sub">Live Workload</div>
+          </div>
+          <div style="display: flex; align-items: flex-end; justify-content: space-between;">
+            <div class="widget-val">${progressCount}</div>
+            <div class="widget-gauge" style="height:40px; width:80px; display:flex; align-items:flex-end;">
+              <svg viewBox="0 0 100 50" style="width:100%; height:100%; overflow:visible;">
+                <path d="M 10 50 A 40 40 0 0 1 90 50" fill="none" stroke="var(--surface3)" stroke-width="12" stroke-linecap="round"/>
+                <path d="M 10 50 A 40 40 0 0 1 90 50" fill="none" stroke="var(--wg-s)" stroke-width="12" stroke-linecap="round" 
+                  stroke-dasharray="126" stroke-dashoffset="${126 - (126 * (totalCount ? progressCount/totalCount : 0))}" style="transition: stroke-dashoffset 1s ease;"/>
+              </svg>
+            </div>
+          </div>
+        </div>
+
+        <!-- Card 4: Resolved (Scatter Plot) -->
+        <div class="widget-card w-green">
+          <div class="widget-head">
+            <div class="widget-label">Resolved</div>
+            <div class="widget-sub">Service Quality</div>
+          </div>
+          <div class="widget-val">${resolvedCount}</div>
+          <div class="widget-delta up">↑ ${totalCount ? Math.round((resolvedCount/totalCount)*100) : 0}% success</div>
+          <div class="widget-wave">
+            <svg class="wave-svg" viewBox="0 0 100 40" style="overflow:visible;">
+              <path d="${getWavePath(resolvedTrends)}" stroke="var(--wg-s)" stroke-width="1.5" fill="none" stroke-dasharray="2 4"/>
+              ${resolvedTrends.map((v, i) => `<circle cx="${i * (100/(resolvedTrends.length-1))}" cy="${40 - (v/maxResolved)*40}" r="3" fill="var(--wg-s)" />`).join("")}
+            </svg>
+          </div>
+        </div>
       </div>
       <div class="card a3">
         <div class="card-head"><span class="card-title">Service Unit Issues (${list.length})</span>
@@ -1089,33 +1263,85 @@ async function renderStaffMembers(el){
     const unitOptions=units.map(u=>`<option value="${u.id}">${u.name}</option>`).join("");
     el.innerHTML=`
       <div class="page-header a1"><h1>Modify <span>Staff Members</span></h1><p>${isAdmin()?"Create and manage staff accounts for every service unit":"Create and manage staff accounts under your service unit"}</p></div>
-      <div class="two-col a2">
-        <div class="card">
-          <div class="card-head"><span class="card-title">Add Staff Member</span></div>
-          <div class="card-body">
-            <div id="staff-alert"></div>
-            <div class="form-group"><label class="label">Full Name <span class="req">*</span></label><input id="staff-name" class="input" placeholder="Staff full name"></div>
-            <div class="form-group"><label class="label">Email <span class="req">*</span></label><input id="staff-email" class="input" type="email" placeholder="staff@cdgi.edu.in"></div>
-            <div class="form-row">
-              <div class="form-group"><label class="label">Phone</label><input id="staff-phone" class="input" maxlength="10" placeholder="10-digit number" oninput="this.value=this.value.replace(/\\D/g,'').slice(0,10)"></div>
-              <div class="form-group"><label class="label">Department / Skill</label><input id="staff-dept" class="input" placeholder="Electrical, Plumbing, IT"></div>
+      <div class="staff-layout a2" id="staff-layout">
+        <div class="staff-left">
+          <div class="card" style="width:350px;">
+            <div class="card-head"><span class="card-title">Add Staff Member</span></div>
+            <div class="card-body">
+              <div id="staff-alert"></div>
+              <div class="form-group"><label class="label">Full Name <span class="req">*</span></label><input id="staff-name" class="input" placeholder="Staff full name"></div>
+              <div class="form-group"><label class="label">Email <span class="req">*</span></label><input id="staff-email" class="input" type="email" placeholder="staff@cdgi.edu.in"></div>
+              <div class="form-row">
+                <div class="form-group"><label class="label">Phone</label><input id="staff-phone" class="input" maxlength="10" placeholder="10-digit number" oninput="this.value=this.value.replace(/\\D/g,'').slice(0,10)"></div>
+                <div class="form-group"><label class="label">Department / Skill</label><input id="staff-dept" class="input" placeholder="Electrical, Plumbing, IT"></div>
+              </div>
+              ${isAdmin()?`<div class="form-group"><label class="label">Service Unit <span class="req">*</span></label><select id="staff-unit" class="select"><option value="">Select service unit</option>${unitOptions}</select></div>`:`<input id="staff-unit" type="hidden" value="${session.service_unit_id||""}">`}
+              <div class="form-group"><label class="label">Temporary Password <span class="req">*</span></label><input id="staff-pass" class="input" type="password" placeholder="Minimum 6 characters"></div>
+              <button class="btn btn-primary btn-full" onclick="createStaffMember()">Add Staff Member</button>
             </div>
-            ${isAdmin()?`<div class="form-group"><label class="label">Service Unit <span class="req">*</span></label><select id="staff-unit" class="select"><option value="">Select service unit</option>${unitOptions}</select></div>`:`<input id="staff-unit" type="hidden" value="${session.service_unit_id||""}">`}
-            <div class="form-group"><label class="label">Temporary Password <span class="req">*</span></label><input id="staff-pass" class="input" type="password" placeholder="Minimum 6 characters"></div>
-            <button class="btn btn-primary btn-full" onclick="createStaffMember()">Add Staff Member</button>
           </div>
         </div>
-        <div class="card">
-          <div class="card-head"><span class="card-title">Staff Summary</span></div>
-          <div class="card-body">
-            <div class="stats" style="grid-template-columns:repeat(3,1fr);gap:10px;">
-              <div class="stat s-blue"><div class="stat-val">${staff.length}</div><div class="stat-label">Total Staff</div></div>
-              <div class="stat s-yel"><div class="stat-val">${staff.reduce((sum,s)=>sum+(s.active_count||0),0)}</div><div class="stat-label">Active Issues</div></div>
-              <div class="stat s-green"><div class="stat-val">${units.length}</div><div class="stat-label">Service Units</div></div>
+        
+        <div class="staff-right">
+          <div class="card">
+            <div class="card-head">
+              <span class="card-title">Staff Summary</span>
+              <button id="add-staff-toggle-btn" class="slide-toggle-btn" onclick="toggleAddStaff()" title="Hide Add Staff Form">◀</button>
+            </div>
+            <div class="card-body">
+              <div class="principal-grid" style="grid-template-columns:repeat(3, 1fr); margin-bottom: 0;">
+                <!-- Total Staff (Polygon Area) -->
+                <div class="widget-card w-blue" style="min-height: 160px; box-shadow: none; border: 1px solid var(--border);">
+                  <div class="widget-head">
+                    <div class="widget-label">Total Staff</div>
+                    <div class="widget-sub">Workforce Size</div>
+                  </div>
+                  <div class="widget-val">${staff.length}</div>
+                  <div class="widget-wave">
+                    <svg class="wave-svg" viewBox="0 0 100 40" style="overflow:visible;">
+                      <polygon points="0,40 0,35 25,20 50,25 75,10 100,5 100,40" fill="var(--wg-s)" style="opacity:0.2"/>
+                      <polyline points="0,35 25,20 50,25 75,10 100,5" fill="none" stroke="var(--wg-s)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                  </div>
+                </div>
+
+                <!-- Active Issues (Half Gauge) -->
+                <div class="widget-card w-orange" style="min-height: 160px; box-shadow: none; border: 1px solid var(--border);">
+                  <div class="widget-head">
+                    <div class="widget-label">Active Issues</div>
+                    <div class="widget-sub">Current Workload</div>
+                  </div>
+                  <div style="display: flex; align-items: flex-end; justify-content: space-between;">
+                    <div class="widget-val">${staff.reduce((sum,s)=>sum+(s.active_count||0),0)}</div>
+                    <div class="widget-gauge" style="height:40px; width:80px; display:flex; align-items:flex-end;">
+                      <svg viewBox="0 0 100 50" style="width:100%; height:100%; overflow:visible;">
+                        <path d="M 10 50 A 40 40 0 0 1 90 50" fill="none" stroke="var(--surface3)" stroke-width="12" stroke-linecap="round"/>
+                        <path d="M 10 50 A 40 40 0 0 1 90 50" fill="none" stroke="var(--wg-s)" stroke-width="12" stroke-linecap="round" 
+                          stroke-dasharray="126" stroke-dashoffset="${126 - (126 * Math.min(1, staff.reduce((sum,s)=>sum+(s.active_count||0),0) / 20))}" style="transition: stroke-dashoffset 1s ease;"/>
+                      </svg>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Service Units (Horizontal Bars) -->
+                <div class="widget-card w-green" style="min-height: 160px; box-shadow: none; border: 1px solid var(--border);">
+                  <div class="widget-head">
+                    <div class="widget-label">Service Units</div>
+                    <div class="widget-sub">Departments</div>
+                  </div>
+                  <div class="widget-val">${units.length}</div>
+                  <div class="widget-chart" style="flex-direction: column; gap: 6px; justify-content: flex-end;">
+                    <div style="width: 100%; height: 6px; background: var(--surface3); border-radius: 4px; overflow: hidden;"><div style="height: 100%; width: 40%; background: var(--wg-s); border-radius: 4px;"></div></div>
+                    <div style="width: 100%; height: 6px; background: var(--surface3); border-radius: 4px; overflow: hidden;"><div style="height: 100%; width: 75%; background: var(--wg-s); border-radius: 4px;"></div></div>
+                    <div style="width: 100%; height: 6px; background: var(--surface3); border-radius: 4px; overflow: hidden;"><div style="height: 100%; width: 55%; background: var(--wg-s); border-radius: 4px;"></div></div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
       </div>
+      
       <div class="card a3" style="margin-top:16px;">
         <div class="card-head"><span class="card-title">Staff Details (${staff.length})</span></div>
         <div class="tbl-wrap"><table>
@@ -1126,8 +1352,23 @@ async function renderStaffMembers(el){
   } catch(e){el.innerHTML=serverDownBanner();}
 }
 
+function toggleAddStaff() {
+  const layout = document.getElementById("staff-layout");
+  const btn = document.getElementById("add-staff-toggle-btn");
+  if (!layout) return;
+  layout.classList.toggle("collapsed");
+  if (layout.classList.contains("collapsed")) {
+    btn.innerHTML = "▶";
+    btn.title = "Show Add Staff Form";
+  } else {
+    btn.innerHTML = "◀";
+    btn.title = "Hide Add Staff Form";
+  }
+}
+
 function staffRow(s, unitOptions){
-  return `<tr>
+  const encodedStaff = encodeURIComponent(JSON.stringify(s));
+  return `<tr style="cursor:pointer;" data-staff="${encodedStaff}" onmousemove="showStaffTooltipData(event, this)" onmouseleave="hideTooltip()">
     <td><div class="flex-c gap-8"><div class="avatar" style="width:30px;height:30px;font-size:11px;flex-shrink:0;">${initials(s.name)}</div><span class="fw-7">${s.name}</span></div></td>
     <td class="text-sm text-2">${s.email}</td>
     <td class="text-sm">${s.phone||"—"}</td>
