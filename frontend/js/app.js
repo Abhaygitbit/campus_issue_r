@@ -548,7 +548,7 @@ async function renderDashboard(el){
     const trends = (stats.trends && stats.trends.some(v => v > 0)) ? stats.trends : [2, 5, 3, 8, 4, 6, 2];
     const maxTrend = Math.max(...trends, 1);
     
-    const principalStats = isPrincipal() ? `
+    const principalStats = `
       <div class="principal-grid a2">
         <!-- Card 1: Total (Bar Chart) -->
         <div class="widget-card w-blue" onclick="showGraphDetail('total')">
@@ -608,13 +608,6 @@ async function renderDashboard(el){
             </svg>
           </div>
         </div>
-      </div>
-    ` : `
-      <div class="stats a2">
-        <div class="stat s-blue"><div class="stat-top"><div class="stat-ico">🎫</div><span class="stat-delta">Total</span></div><div class="stat-val">${stats.total}</div><div class="stat-label">Total Complaints</div><div class="stat-strip"><div class="stat-strip-fill" style="width:100%"></div></div></div>
-        <div class="stat s-teal"><div class="stat-top"><div class="stat-ico">🆕</div></div><div class="stat-val">${stats.pending_assignment ?? stats.new ?? 0}</div><div class="stat-label">Routed</div><div class="stat-strip"><div class="stat-strip-fill" style="width:${stats.total?((stats.pending_assignment ?? stats.new ?? 0)/stats.total*100).toFixed(0):0}%"></div></div></div>
-        <div class="stat s-yel"><div class="stat-top"><div class="stat-ico">⏳</div></div><div class="stat-val">${stats.in_progress}</div><div class="stat-label">In Progress</div><div class="stat-strip"><div class="stat-strip-fill" style="width:${stats.total?(stats.in_progress/stats.total*100).toFixed(0):0}%"></div></div></div>
-        <div class="stat s-green"><div class="stat-top"><div class="stat-ico">✅</div><span class="stat-delta up">${stats.resolution_rate}%</span></div><div class="stat-val">${stats.resolved}</div><div class="stat-label">Resolved</div><div class="stat-strip"><div class="stat-strip-fill" style="width:${stats.resolution_rate}%"></div></div></div>
       </div>
     `;
 
