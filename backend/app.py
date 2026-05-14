@@ -83,11 +83,6 @@ def ensure_db_schema():
             if not inspector.has_table("complaints"):
                 return
 
-            cols = {c["name"] for c in inspector.get_columns("users")}
-            stmts_u = []
-            if "profile_image" not in cols:
-                stmts_u.append("ALTER TABLE users ADD COLUMN profile_image VARCHAR(300)")
-            
             cols = {c["name"] for c in inspector.get_columns("complaints")}
             stmts = []
             if "service_unit_id" not in cols:
@@ -101,9 +96,9 @@ def ensure_db_schema():
             if "assigned_by_manager_id" not in cols:
                 stmts.append("ALTER TABLE complaints ADD COLUMN assigned_by_manager_id INTEGER")
 
-            if stmts_u or stmts:
+            if stmts:
                 with db.engine.begin() as conn:
-                    for stmt in stmts_u + stmts:
+                    for stmt in stmts:
                         conn.execute(text(stmt))
         except Exception as e:
             print(f"Database schema check: {e}")
@@ -126,14 +121,12 @@ class User(db.Model):
     created_at=db.Column(db.DateTime,default=datetime.utcnow)
     service_unit_id=db.Column(db.Integer)
     academic_department=db.Column(db.String(100))
-    profile_image=db.Column(db.String(300))
     complaints=db.relationship("Complaint",backref="reporter",lazy=True,foreign_keys="Complaint.user_id")
     assigned_complaints=db.relationship("Complaint",backref="assigned_staff",lazy=True,foreign_keys="Complaint.assigned_staff_id")
     def to_dict(self):
         return {"id":self.id,"name":self.name,"email":self.email,"role":self.role,"dept":self.dept,
                 "roll_no":self.roll_no or "","phone":self.phone or "","is_verified":self.is_verified,
                 "service_unit_id":self.service_unit_id,"academic_department":self.academic_department or "",
-                "profile_image":self.profile_image or "",
                 "created_at":self.created_at.strftime("%Y-%m-%d") if self.created_at else ""}
 
 class Complaint(db.Model):
@@ -719,27 +712,6 @@ def update_profile():
     db.session.commit()
     return jsonify({"status":"success","user":user.to_dict()})
 
-@app.route("/api/profile/image", methods=["POST"])
-@jwt_required()
-def upload_profile_image():
-    user = db.session.get(User, int(get_jwt_identity()))
-    if not user: return jsonify({"error": "Not found"}), 404
-    
-    if 'image' not in request.files:
-        return jsonify({"error": "No image provided"}), 400
-        
-    file = request.files['image']
-    if file.filename == '':
-        return jsonify({"error": "No selected file"}), 400
-        
-    saved = save_upload(file, prefix=f"profile_{user.id}", image_only=True)
-    if saved:
-        user.profile_image = saved
-        db.session.commit()
-        return jsonify({"status": "success", "user": user.to_dict()})
-        
-    return jsonify({"error": "Invalid file type"}), 400
-
 @app.route("/api/staff/options", methods=["GET"])
 @jwt_required()
 def get_staff_options():
@@ -1177,23 +1149,11 @@ def get_stats():
     assigned = base.filter(Complaint.status == "assigned").count()
     inp = base.filter(Complaint.status == "in-progress").count()
     res = base.filter(Complaint.status == "resolved").count()
-    
-    # Calculate daily trends for the last 7 days
-    # For Principal, show overall campus trends for better visibility
-    trend_base = Complaint.query if user.role == "principal" else base
-    trends = []
-    today = datetime.utcnow().date()
-    for i in range(6, -1, -1):
-        day = today - timedelta(days=i)
-        day_str = day.strftime("%Y-%m-%d")
-        count = trend_base.filter(db.func.strftime("%Y-%m-%d", Complaint.created_at) == day_str).count()
-        trends.append(count)
-
     cats = {}
     for c in base.all():
         cats[c.category] = cats.get(c.category, 0) + 1
     return jsonify({"total":total,"pending_assignment":pending,"assigned":assigned,"new":pending,
-                    "in_progress":inp,"resolved":res,"categories":cats,"trends":trends,
+                    "in_progress":inp,"resolved":res,"categories":cats,
                     "total_users":User.query.count() if user.role=="admin" else None,
                     "resolution_rate":round((res/total*100) if total else 0,1)})
 
