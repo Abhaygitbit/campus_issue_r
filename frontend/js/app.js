@@ -6,13 +6,8 @@
  * - Before/After photos
  * - Enhanced email notifications
  */
-const API = (() => {
-  // In production (same origin), use relative path.
-  // In local dev (frontend on :3000, backend on :5002), point to backend directly.
-  if (window.location.port === "3000") return "http://localhost:5002/api";
-  return `${window.location.origin}/api`;
-})();
-let token   = localStorage.getItem("cirs_token") || null;
+const API = `${window.location.origin}/api`;
+let token = localStorage.getItem("cirs_token") || null;
 let session = JSON.parse(localStorage.getItem("cirs_user") || "null");
 let section = "dashboard";
 
@@ -30,9 +25,9 @@ function showTooltip(e, title, val) {
 function showTableTooltip(e, id, title, category, status, reporter, desc, date) {
   const t = document.getElementById("chart-tooltip");
   if (!t) return;
-  
+
   const shortDesc = desc && desc.length > 120 ? desc.substring(0, 120) + "..." : (desc || "No description provided.");
-  
+
   t.innerHTML = `
     <div class="tt-head">
       <span class="tt-id">${id}</span>
@@ -58,22 +53,22 @@ function showTableTooltip(e, id, title, category, status, reporter, desc, date) 
     </div>
   `;
   t.className = "chart-tooltip table-tooltip show";
-  
+
   // Adjust position to stay within viewport
   const tooltipWidth = 300; // slightly wider for description
   let left = e.clientX + 15;
   if (left + tooltipWidth > window.innerWidth) {
     left = e.clientX - tooltipWidth - 15;
   }
-  
+
   let top = e.clientY + 15;
   const tooltipHeight = t.offsetHeight || 200;
-  
+
   if (top + tooltipHeight > window.innerHeight) {
     top = e.clientY - tooltipHeight - 15;
     if (top < 10) top = 10;
   }
-  
+
   t.style.left = left + "px";
   t.style.top = top + "px";
 }
@@ -82,7 +77,7 @@ function showStaffTooltipData(e, rowEl) {
   const t = document.getElementById("chart-tooltip");
   if (!t) return;
   const s = JSON.parse(decodeURIComponent(rowEl.dataset.staff));
-  
+
   t.innerHTML = `
     <div class="tt-head">
       <span class="tt-id text-sm">${s.name}</span>
@@ -120,19 +115,19 @@ function showStaffTooltipData(e, rowEl) {
     </div>
   `;
   t.className = "chart-tooltip table-tooltip show";
-  
+
   const tooltipWidth = 280;
   let left = e.clientX + 15;
   if (left + tooltipWidth > window.innerWidth) left = e.clientX - tooltipWidth - 15;
-  
+
   let top = e.clientY + 15;
   const tooltipHeight = t.offsetHeight || 250; // Fallback height if offsetHeight isn't ready
-  
+
   if (top + tooltipHeight > window.innerHeight) {
     top = e.clientY - tooltipHeight - 15;
     if (top < 10) top = 10;
   }
-  
+
   t.style.left = left + "px";
   t.style.top = top + "px";
 }
@@ -153,11 +148,11 @@ const getWavePath = (data) => {
   }));
   let d = `M${points[0].x} ${points[0].y}`;
   for (let i = 0; i < points.length - 1; i++) {
-    const xc = (points[i].x + points[i+1].x) / 2;
-    const yc = (points[i].y + points[i+1].y) / 2;
+    const xc = (points[i].x + points[i + 1].x) / 2;
+    const yc = (points[i].y + points[i + 1].y) / 2;
     d += ` Q ${points[i].x} ${points[i].y}, ${xc} ${yc}`;
   }
-  d += ` T ${points[points.length-1].x} ${points[points.length-1].y}`;
+  d += ` T ${points[points.length - 1].x} ${points[points.length - 1].y}`;
   return d;
 };
 
@@ -172,28 +167,28 @@ const getAreaPath = (data) => {
   }));
   let d = `M0 ${height} L${points[0].x} ${points[0].y}`;
   for (let i = 0; i < points.length - 1; i++) {
-    const xc = (points[i].x + points[i+1].x) / 2;
-    const yc = (points[i].y + points[i+1].y) / 2;
+    const xc = (points[i].x + points[i + 1].x) / 2;
+    const yc = (points[i].y + points[i + 1].y) / 2;
     d += ` Q ${points[i].x} ${points[i].y}, ${xc} ${yc}`;
   }
-  d += ` T ${points[points.length-1].x} ${points[points.length-1].y}`;
+  d += ` T ${points[points.length - 1].x} ${points[points.length - 1].y}`;
   d += ` L${width} ${height} Z`;
   return d;
 };
 
 const getTrendData = (list) => {
-  const trend = [0,0,0,0,0,0,0];
+  const trend = [0, 0, 0, 0, 0, 0, 0];
   const today = new Date();
-  today.setHours(0,0,0,0);
-  
+  today.setHours(0, 0, 0, 0);
+
   list.forEach(c => {
     if (!c.created_at) return;
     const [y, m, d] = c.created_at.split('-');
     if (!y || !m || !d) return;
     const dateObj = new Date(y, m - 1, d.split(' ')[0]); // Handle 'YYYY-MM-DD HH:MM' format just in case
-    dateObj.setHours(0,0,0,0);
+    dateObj.setHours(0, 0, 0, 0);
     const diffDays = Math.floor((today - dateObj) / (1000 * 60 * 60 * 24));
-    
+
     if (diffDays >= 0 && diffDays < 7) {
       trend[6 - diffDays]++;
     }
@@ -204,13 +199,13 @@ const getTrendData = (list) => {
 async function showGraphDetail(type) {
   const stats = await api("stats");
   if (!stats) return;
-  
-  const trends = stats.trends || [0,0,0,0,0,0,0];
+
+  const trends = stats.trends || [0, 0, 0, 0, 0, 0, 0];
   const maxTrend = Math.max(...trends, 1);
   const titles = { total: "Total Complaints", routed: "Routed Issues", progress: "Work in Progress", resolved: "Resolved Issues" };
   const colors = { total: "detail-blue", routed: "detail-orange", progress: "detail-purple", resolved: "detail-green" };
   const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-  const last7Days = Array.from({length: 7}, (_, i) => {
+  const last7Days = Array.from({ length: 7 }, (_, i) => {
     const d = new Date(); d.setDate(d.getDate() - (6 - i));
     return days[d.getDay()];
   });
@@ -231,7 +226,7 @@ async function showGraphDetail(type) {
             ${trends.map((v, i) => `
               <div class="large-bar">
                 <div class="large-bar-val">${v}</div>
-                <div class="large-bar-fill" style="height: ${Math.max((v/maxTrend*100), 5)}%"></div>
+                <div class="large-bar-fill" style="height: ${Math.max((v / maxTrend * 100), 5)}%"></div>
                 <div class="large-bar-label">${last7Days[i]}</div>
               </div>
             `).join("")}
@@ -252,7 +247,7 @@ async function showGraphDetail(type) {
               <circle cx="50" cy="50" r="45" fill="none" stroke="var(--surface2)" stroke-width="8" />
               <circle cx="50" cy="50" r="45" fill="none" stroke="var(--wg-s, #8b5cf6)" stroke-width="8" 
                 stroke-dasharray="283" 
-                stroke-dashoffset="${283 - (283 * (stats.total ? stats.in_progress/stats.total : 0))}"
+                stroke-dashoffset="${283 - (283 * (stats.total ? stats.in_progress / stats.total : 0))}"
                 style="transition: stroke-dashoffset 1s ease; filter: drop-shadow(0 0 10px var(--wg-s));" />
             </svg>
             <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center;">
@@ -270,7 +265,7 @@ async function showGraphDetail(type) {
         </div>
         <div class="detail-stat-item">
           <div class="detail-stat-label">Avg / Day</div>
-          <div class="detail-stat-val">${(trends.reduce((a,b)=>a+b,0)/7).toFixed(1)}</div>
+          <div class="detail-stat-val">${(trends.reduce((a, b) => a + b, 0) / 7).toFixed(1)}</div>
         </div>
         <div class="detail-stat-item">
           <div class="detail-stat-label">Efficiency Rate</div>
@@ -282,61 +277,61 @@ async function showGraphDetail(type) {
   openModal(html, "lg");
 }
 
-async function api(endpoint, method="GET", body=null, formData=false) {
-  const opts = { method, headers: { ...(token ? {Authorization:`Bearer ${token}`} : {}) } };
-  if (body && !formData) { opts.headers["Content-Type"]="application/json"; opts.body=JSON.stringify(body); }
+async function api(endpoint, method = "GET", body = null, formData = false) {
+  const opts = { method, headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) } };
+  if (body && !formData) { opts.headers["Content-Type"] = "application/json"; opts.body = JSON.stringify(body); }
   if (body && formData) opts.body = body;
   try {
     const res = await fetch(`${API}/${endpoint}`, opts);
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || `Error ${res.status}`);
     return data;
-  } catch(e) { throw e; }
+  } catch (e) { throw e; }
 }
 
-function toast(msg, type="ok") {
+function toast(msg, type = "ok") {
   const c = document.getElementById("toasts"); if (!c) return;
   const t = document.createElement("div");
   t.className = `toast toast-${type}`;
-  t.innerHTML = `<span class="toast-ico">${type==="ok"?"✅":type==="err"?"❌":"ℹ️"}</span><span>${msg}</span>`;
+  t.innerHTML = `<span class="toast-ico">${type === "ok" ? "✅" : type === "err" ? "❌" : "ℹ️"}</span><span>${msg}</span>`;
   c.appendChild(t);
-  setTimeout(()=>{t.style.opacity="0";t.style.transform="translateX(110%)";t.style.transition="all .3s";setTimeout(()=>t.remove(),300);},3500);
+  setTimeout(() => { t.style.opacity = "0"; t.style.transform = "translateX(110%)"; t.style.transition = "all .3s"; setTimeout(() => t.remove(), 300); }, 3500);
 }
 
-function saveSession(d){token=d.token;session=d.user;localStorage.setItem("cirs_token",token);localStorage.setItem("cirs_user",JSON.stringify(session));}
-function clearSession(){token=session=null;localStorage.removeItem("cirs_token");localStorage.removeItem("cirs_user");}
-function isAdmin(){return session?.role==="admin";}
-function isCoord(){return session?.role==="coordinator";}
-function isFaculty(){return session?.role==="faculty";}
-function isStaff(){return session?.role==="staff";}
-function isManager(){return session?.role==="service_unit_manager";}
-function isHOD(){return session?.role==="hod";}
-function isPrincipal(){return session?.role==="principal";}
-function canReport(){return ["student","faculty"].includes(session?.role);}
-function canManage(){return isManager();}
-function canViewAll(){return ["admin","coordinator","service_unit_manager","hod","principal"].includes(session?.role);}
-function canAssign(){return isManager();}
-function canOpenUsers(){return ["admin","coordinator"].includes(session?.role);}
-function canModifyStaff(){return ["admin","service_unit_manager"].includes(session?.role);}
-function complaintNavLabel(){
+function saveSession(d) { token = d.token; session = d.user; localStorage.setItem("cirs_token", token); localStorage.setItem("cirs_user", JSON.stringify(session)); }
+function clearSession() { token = session = null; localStorage.removeItem("cirs_token"); localStorage.removeItem("cirs_user"); }
+function isAdmin() { return session?.role === "admin"; }
+function isCoord() { return session?.role === "coordinator"; }
+function isFaculty() { return session?.role === "faculty"; }
+function isStaff() { return session?.role === "staff"; }
+function isManager() { return session?.role === "service_unit_manager"; }
+function isHOD() { return session?.role === "hod"; }
+function isPrincipal() { return session?.role === "principal"; }
+function canReport() { return ["student", "faculty"].includes(session?.role); }
+function canManage() { return isManager(); }
+function canViewAll() { return ["admin", "coordinator", "service_unit_manager", "hod", "principal"].includes(session?.role); }
+function canAssign() { return isManager(); }
+function canOpenUsers() { return ["admin", "coordinator"].includes(session?.role); }
+function canModifyStaff() { return ["admin", "service_unit_manager"].includes(session?.role); }
+function complaintNavLabel() {
   if (isPrincipal()) return "Unsolved Problems";
   if (isStaff()) return "My Assigned Issues";
   if (isManager()) return "Service Unit Complaints";
   if (isHOD()) return "Department Complaints";
   return canViewAll() ? "All Complaints" : "My Complaints";
 }
-function statusLabel(s){return ({"routed":"Routed","assigned":"Assigned","in-progress":"In Progress","resolved":"Resolved","escalated":"Escalated","closed":"Closed"}[s]||s);}
-function initials(n){return(n||"?").split(" ").map(w=>w[0]).join("").slice(0,2).toUpperCase();}
-function valPhone(p){return /^\d{10}$/.test(p);}
+function statusLabel(s) { return ({ "routed": "Routed", "assigned": "Assigned", "in-progress": "In Progress", "resolved": "Resolved", "escalated": "Escalated", "closed": "Closed" }[s] || s); }
+function initials(n) { return (n || "?").split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase(); }
+function valPhone(p) { return /^\d{10}$/.test(p); }
 
-function boot(){
+function boot() {
   if (session && token) renderApp();
   else renderAuth("login");
 }
 
 /* ══ AUTH ══════════════════════════════════════════════════ */
-function renderAuth(mode="login"){
-  document.getElementById("app").innerHTML=`
+function renderAuth(mode = "login") {
+  document.getElementById("app").innerHTML = `
     <div class="auth-page">
       <div class="auth-bg"></div>
       <div class="auth-card a1">
@@ -353,17 +348,17 @@ function renderAuth(mode="login"){
         </div>
         <div class="auth-form-section">
           <div class="auth-tabs">
-            <button class="auth-tab ${mode==="login"?"active":""}" onclick="renderAuth('login')">Sign In</button>
-            <button class="auth-tab ${mode==="register"?"active":""}" onclick="renderAuth('register')">Register</button>
+            <button class="auth-tab ${mode === "login" ? "active" : ""}" onclick="renderAuth('login')">Sign In</button>
+            <button class="auth-tab ${mode === "register" ? "active" : ""}" onclick="renderAuth('register')">Register</button>
           </div>
           <div id="auth-alert"></div>
-          ${mode==="login" ? loginForm() : registerForm()}
+          ${mode === "login" ? loginForm() : registerForm()}
         </div>
       </div>
     </div>
     <div class="toasts" id="toasts"></div>`;
 }
-function loginForm(){
+function loginForm() {
   return `
     <div class="form-group">
       <label class="label">Email / User ID <span class="req">*</span></label>
@@ -388,7 +383,7 @@ function loginForm(){
     </p>`;
 }
 
-function registerForm(){
+function registerForm() {
   return `
     <div class="form-row">
       <div class="form-group"><label class="label">Full Name <span class="req">*</span></label><input id="r-name" class="input" placeholder="Your full name"></div>
@@ -419,69 +414,69 @@ function registerForm(){
     <p class="text-sm text-2" style="text-align:center;margin-top:14px;">Already registered? <a class="fw-6" href="#" onclick="renderAuth('login')" style="color:var(--blue);">Sign in</a></p>`;
 }
 
-async function doLogin(){
-  const email=document.getElementById("l-email").value.trim();
-  const pass=document.getElementById("l-pass").value;
-  const btn=document.getElementById("login-btn");
-  if (!email||!pass){showAuthErr("Please fill all fields.");return;}
-  btn.disabled=true; btn.innerHTML=`<span class="spin">⟳</span> Signing in…`;
+async function doLogin() {
+  const email = document.getElementById("l-email").value.trim();
+  const pass = document.getElementById("l-pass").value;
+  const btn = document.getElementById("login-btn");
+  if (!email || !pass) { showAuthErr("Please fill all fields."); return; }
+  btn.disabled = true; btn.innerHTML = `<span class="spin">⟳</span> Signing in…`;
   try {
-    const d=await api("login","POST",{email,password:pass});
+    const d = await api("login", "POST", { email, password: pass });
     saveSession(d); renderApp();
-  } catch(e) {
+  } catch (e) {
     showAuthErr(e.message);
     if (e.message.includes("verify")) {
-      document.getElementById("verify-section").style.display="block";
-      window._verifyEmail=email;
+      document.getElementById("verify-section").style.display = "block";
+      window._verifyEmail = email;
     }
-    btn.disabled=false; btn.innerHTML="Login »";
+    btn.disabled = false; btn.innerHTML = "Login »";
   }
 }
 
-async function resendVerify(){
-  const email=window._verifyEmail||document.getElementById("l-email").value.trim();
-  if (!email){toast("Enter your email first","err");return;}
+async function resendVerify() {
+  const email = window._verifyEmail || document.getElementById("l-email").value.trim();
+  if (!email) { toast("Enter your email first", "err"); return; }
   try {
-    const d=await api("resend-verify","POST",{email});
-    toast(d.message || "Verification email sent.","ok");
-  } catch(e){toast(e.message,"err");}
+    const d = await api("resend-verify", "POST", { email });
+    toast(d.message || "Verification email sent.", "ok");
+  } catch (e) { toast(e.message, "err"); }
 }
 
-async function doRegister(){
-  const name=document.getElementById("r-name").value.trim();
-  const email=document.getElementById("r-email").value.trim();
-  const pass=document.getElementById("r-pass").value;
-  const phone=document.getElementById("r-phone").value.trim();
-  const dept=document.getElementById("r-dept").value;
-  const role=document.getElementById("r-role").value;
-  const roll=document.getElementById("r-roll").value.trim();
-  if (!name||!email||!pass){showAuthErr("Name, email and password required.");return;}
-  if (pass.length<6){showAuthErr("Password must be at least 6 characters.");return;}
-  if (phone&&!valPhone(phone)){document.getElementById("phone-err").classList.add("show");showAuthErr("Phone must be exactly 10 digits.");return;}
+async function doRegister() {
+  const name = document.getElementById("r-name").value.trim();
+  const email = document.getElementById("r-email").value.trim();
+  const pass = document.getElementById("r-pass").value;
+  const phone = document.getElementById("r-phone").value.trim();
+  const dept = document.getElementById("r-dept").value;
+  const role = document.getElementById("r-role").value;
+  const roll = document.getElementById("r-roll").value.trim();
+  if (!name || !email || !pass) { showAuthErr("Name, email and password required."); return; }
+  if (pass.length < 6) { showAuthErr("Password must be at least 6 characters."); return; }
+  if (phone && !valPhone(phone)) { document.getElementById("phone-err").classList.add("show"); showAuthErr("Phone must be exactly 10 digits."); return; }
   document.getElementById("phone-err")?.classList.remove("show");
   try {
-    const d=await api("register","POST",{name,email,password:pass,phone,dept,role,roll_no:roll});
-    if (d.status==="pending_verification") {
-      document.getElementById("auth-alert").innerHTML=`<div class="alert alert-info"><span class="alert-ico">📧</span><div><strong>Verification email sent</strong><br><span class="text-sm">A verification link was sent to <strong>${email}</strong>. Click it to activate your account.</span></div></div>`;
+    const d = await api("register", "POST", { name, email, password: pass, phone, dept, role, roll_no: roll });
+    if (d.status === "pending_verification") {
+      document.getElementById("auth-alert").innerHTML = `<div class="alert alert-info"><span class="alert-ico">📧</span><div><strong>Verification email sent</strong><br><span class="text-sm">A verification link was sent to <strong>${email}</strong>. Click it to activate your account.</span></div></div>`;
     } else {
-      saveSession(d); renderApp(); toast(`Welcome to CIRS, ${name}! 🎉`,"ok");
+      saveSession(d); renderApp(); toast(`Welcome to CIRS, ${name}! 🎉`, "ok");
     }
-  } catch(e){showAuthErr(e.message);}
+  } catch (e) { showAuthErr(e.message); }
 }
 
-function showAuthErr(msg){const el=document.getElementById("auth-alert");if(el)el.innerHTML=`<div class="alert alert-err"><span class="alert-ico">⚠️</span>${msg}</div>`;}
-function toggleEye(id,btn){const inp=document.getElementById(id);inp.type=inp.type==="password"?"text":"password";btn.textContent=inp.type==="password"?"👁️":"🙈";}
+function showAuthErr(msg) { const el = document.getElementById("auth-alert"); if (el) el.innerHTML = `<div class="alert alert-err"><span class="alert-ico">⚠️</span>${msg}</div>`; }
+function toggleEye(id, btn) { const inp = document.getElementById(id); inp.type = inp.type === "password" ? "text" : "password"; btn.textContent = inp.type === "password" ? "👁️" : "🙈"; }
 
 /* ══ APP SHELL ══════════════════════════════════════════════ */
-function renderApp(){
-  if (!session){renderAuth("login");return;}
-  const staffLimited=isStaff();
-  const complaintSection=isPrincipal()?"unsolved":"complaints";
-  const showReport=canReport();
-  const showManage=canManage();
-  const showUsers=canOpenUsers();
-  const showStaffMembers=canModifyStaff();
-  document.getElementById("app").innerHTML=`
+function renderApp() {
+  if (!session) { renderAuth("login"); return; }
+  const staffLimited = isStaff();
+  const complaintSection = isPrincipal() ? "unsolved" : "complaints";
+  const showReport = canReport();
+  const showManage = canManage();
+  const showUsers = canOpenUsers();
+  const showStaffMembers = canModifyStaff();
+  document.getElementById("app").innerHTML = `
     <div class="sidebar-overlay" id="sidebar-overlay" onclick="closeSidebar()"></div>
     <div class="shell">
       <aside class="sidebar" id="sidebar">
@@ -497,7 +492,7 @@ function renderApp(){
           </button>
         </div>
         <nav class="nav">
-          ${staffLimited?`
+          ${staffLimited ? `
           <div><div class="nav-section-label">My Work</div>
             <button class="nav-item active" data-s="dashboard" onclick="go('dashboard')"><span class="nav-icon">📊</span> Dashboard</button>
             <button class="nav-item" data-s="complaints" onclick="go('complaints')"><span class="nav-icon">📋</span> My Assigned Issues</button>
@@ -505,28 +500,36 @@ function renderApp(){
           <div><div class="nav-section-label">Account</div>
             <button class="nav-item" data-s="profile" onclick="go('profile')"><span class="nav-icon">👤</span> Profile</button>
             <button class="nav-item" onclick="logout()"><span class="nav-icon">🚪</span> Sign Out</button>
-          </div>`:`
+          </div>`: `
           <div><div class="nav-section-label">Main Menu</div>
             <button class="nav-item active" data-s="dashboard" onclick="go('dashboard')"><span class="nav-icon">📊</span> Dashboard</button>
-            ${showReport?`<button class="nav-item" data-s="report" onclick="go('report')"><span class="nav-icon">📝</span> Report Issue</button>`:""}
+            ${showReport ? `<button class="nav-item" data-s="report" onclick="go('report')"><span class="nav-icon">📝</span> Report Issue</button>` : ""}
             <button class="nav-item" data-s="${complaintSection}" onclick="go('${complaintSection}')"><span class="nav-icon">📋</span> ${complaintNavLabel()}</button>
           </div>
-          ${(showManage||showUsers||showStaffMembers)?`<div><div class="nav-section-label">Management</div>
-            ${showManage?`<button class="nav-item" data-s="manage" onclick="go('manage')"><span class="nav-icon">⚙️</span> Manager Panel<span class="nav-badge" id="new-count" style="display:none">0</span></button>`:""}
-            ${showStaffMembers?`<button class="nav-item" data-s="staff-members" onclick="go('staff-members')"><span class="nav-icon">👷</span> Modify Staff Members</button>`:""}
-            ${showUsers?`<button class="nav-item" data-s="users" onclick="go('users')"><span class="nav-icon">👥</span> Users</button>`:""}
-          </div>`:""}
+          ${(showManage || showUsers || showStaffMembers) ? `<div><div class="nav-section-label">Management</div>
+            ${showManage ? `<button class="nav-item" data-s="manage" onclick="go('manage')"><span class="nav-icon">⚙️</span> Manager Panel<span class="nav-badge" id="new-count" style="display:none">0</span></button>` : ""}
+            ${showStaffMembers ? `<button class="nav-item" data-s="staff-members" onclick="go('staff-members')"><span class="nav-icon">👷</span> Modify Staff Members</button>` : ""}
+            ${showUsers ? `<button class="nav-item" data-s="users" onclick="go('users')"><span class="nav-icon">👥</span> Users</button>` : ""}
+          </div>`: ""}
           <div><div class="nav-section-label">Account</div>
             <button class="nav-item" data-s="profile" onclick="go('profile')"><span class="nav-icon">👤</span> Profile</button>
             <button class="nav-item" onclick="logout()"><span class="nav-icon">🚪</span> Sign Out</button>
           </div>`}
         </nav>
-
+        <div class="sidebar-foot">
+          <div class="user-card" onclick="go('profile')">
+            <div class="avatar" style="overflow:hidden; display:flex; align-items:center; justify-content:center;">
+              ${session.profile_image ? `<img src="${session.profile_image}" style="width:100%;height:100%;object-fit:cover;">` : initials(session.name)}
+            </div>
+            <div class="user-info"><div class="u-name">${session.name}</div><div class="u-role">${session.role} · ${session.dept}</div></div>
+          </div>
+        </div>
       </aside>
       <main class="main">
         <header class="topbar">
           <div class="topbar-l">
             <button class="menu-btn" onclick="toggleSidebar()">☰</button>
+            <div><div class="pg-title" id="pg-title">Dashboard</div><div class="pg-crumb">CDGI / <span id="pg-crumb">Campus Portal</span></div></div>
           </div>
           <div class="topbar-r">
             <div class="topbar-college-brand">
@@ -554,18 +557,18 @@ function renderApp(){
     <div class="overlay" id="overlay" onclick="closeModal()"><div class="modal" id="modal" onclick="event.stopPropagation()"></div></div>
     <div class="toasts" id="toasts"></div>
     <div id="chart-tooltip" class="chart-tooltip"></div>`;
-  
+
   if (localStorage.getItem('cirs_sidebar_collapsed') === 'true') {
     document.querySelector('.shell').classList.add('collapsed');
   }
 
   go("dashboard");
   loadNotifications();
-  document.addEventListener("click",e=>{const d=document.getElementById("notif-drop"),b=document.getElementById("notif-btn");if(d&&b&&!d.contains(e.target)&&!b.contains(e.target))d.classList.remove("open");});
+  document.addEventListener("click", e => { const d = document.getElementById("notif-drop"), b = document.getElementById("notif-btn"); if (d && b && !d.contains(e.target) && !b.contains(e.target)) d.classList.remove("open"); });
 }
 
-function toggleSidebar(){document.getElementById("sidebar")?.classList.toggle("open");document.getElementById("sidebar-overlay")?.classList.toggle("show");}
-function closeSidebar(){document.getElementById("sidebar")?.classList.remove("open");document.getElementById("sidebar-overlay")?.classList.remove("show");}
+function toggleSidebar() { document.getElementById("sidebar")?.classList.toggle("open"); document.getElementById("sidebar-overlay")?.classList.toggle("show"); }
+function closeSidebar() { document.getElementById("sidebar")?.classList.remove("open"); document.getElementById("sidebar-overlay")?.classList.remove("show"); }
 
 function toggleSidebarCollapse() {
   const shell = document.querySelector('.shell');
@@ -576,29 +579,29 @@ function toggleSidebarCollapse() {
   }
 }
 
-function go(s){
-  section=s;
-  document.querySelectorAll(".nav-item").forEach(el=>el.classList.toggle("active",el.dataset.s===s));
-  const titles={dashboard:isStaff()?"Staff Dashboard":isManager()?"Manager Dashboard":isPrincipal()?"Principal Dashboard":isHOD()?"HOD Dashboard":"Dashboard",report:"Report Issue",complaints:complaintNavLabel(),unsolved:"Unsolved Problems",manage:"Manager Panel","staff-members":"Modify Staff Members",users:"Users",profile:"Profile"};
-
-  const content=document.getElementById("page-content"); if(!content) return;
-  content.innerHTML=`<div style="text-align:center;padding:60px;color:var(--text-3);">Loading…</div>`;
+function go(s) {
+  section = s;
+  document.querySelectorAll(".nav-item").forEach(el => el.classList.toggle("active", el.dataset.s === s));
+  const titles = { dashboard: isStaff() ? "Staff Dashboard" : isManager() ? "Manager Dashboard" : isPrincipal() ? "Principal Dashboard" : isHOD() ? "HOD Dashboard" : "Dashboard", report: "Report Issue", complaints: complaintNavLabel(), unsolved: "Unsolved Problems", manage: "Manager Panel", "staff-members": "Modify Staff Members", users: "Users", profile: "Profile" };
+  const pg = document.getElementById("pg-title"); if (pg) pg.textContent = titles[s] || s;
+  const content = document.getElementById("page-content"); if (!content) return;
+  content.innerHTML = `<div style="text-align:center;padding:60px;color:var(--text-3);">Loading…</div>`;
   closeSidebar();
-  const map={dashboard:renderDashboard,report:renderReport,complaints:renderComplaints,unsolved:renderUnsolved,manage:renderManage,"staff-members":renderStaffMembers,users:renderUsers,profile:renderProfile};
-  if(map[s]) map[s](content);
+  const map = { dashboard: renderDashboard, report: renderReport, complaints: renderComplaints, unsolved: renderUnsolved, manage: renderManage, "staff-members": renderStaffMembers, users: renderUsers, profile: renderProfile };
+  if (map[s]) map[s](content);
 }
-function logout(){clearSession();renderAuth("login");}
+function logout() { clearSession(); renderAuth("login"); }
 
 /* ══ DASHBOARD ══════════════════════════════════════════════ */
-async function renderDashboard(el){
+async function renderDashboard(el) {
   try {
-    const complaintsEndpoint=isPrincipal()?"complaints?scope=principal-unsolved":"complaints";
-    const [stats,recent]=await Promise.all([api("stats"),api(complaintsEndpoint)]);
-    const list=(recent.data||[]).slice(0,6);
-    const badge=document.getElementById("new-count");
-    if(badge&&canManage()&&stats.new>0){badge.style.display="";badge.textContent=stats.new;}
-    const cats=stats.categories||{}; const maxCat=Math.max(...Object.values(cats),1);
-    const hr=new Date().getHours(); const greet=hr<12?"morning":hr<17?"afternoon":"evening";
+    const complaintsEndpoint = isPrincipal() ? "complaints?scope=principal-unsolved" : "complaints";
+    const [stats, recent] = await Promise.all([api("stats"), api(complaintsEndpoint)]);
+    const list = (recent.data || []).slice(0, 6);
+    const badge = document.getElementById("new-count");
+    if (badge && canManage() && stats.new > 0) { badge.style.display = ""; badge.textContent = stats.new; }
+    const cats = stats.categories || {}; const maxCat = Math.max(...Object.values(cats), 1);
+    const hr = new Date().getHours(); const greet = hr < 12 ? "morning" : hr < 17 ? "afternoon" : "evening";
     const quickActions = `
       <div class="quick-action-grid">
         ${canReport() ? `
@@ -629,9 +632,9 @@ async function renderDashboard(el){
         </div>
       </div>
     `;
-    const trends = stats.trends || [0,0,0,0,0,0,0];
+    const trends = stats.trends || [0, 0, 0, 0, 0, 0, 0];
     const maxTrend = Math.max(...trends, 1);
-    
+
     const principalStats = `
       <div class="principal-grid a2">
         <!-- Card 1: Total (Bar Chart) -->
@@ -642,7 +645,7 @@ async function renderDashboard(el){
           </div>
           <div class="widget-val">${stats.total}</div>
           <div class="widget-chart">
-            ${trends.map(v => `<div class="w-bar"><div class="w-bar-fill" style="height: ${Math.max((v/maxTrend*100), 10)}%"></div></div>`).join("")}
+            ${trends.map(v => `<div class="w-bar"><div class="w-bar-fill" style="height: ${Math.max((v / maxTrend * 100), 10)}%"></div></div>`).join("")}
           </div>
         </div>
 
@@ -671,7 +674,7 @@ async function renderDashboard(el){
             <div class="widget-gauge">
               <svg class="gauge-svg" viewBox="0 0 100 100">
                 <circle class="gauge-bg" cx="50" cy="50" r="40" />
-                <circle class="gauge-fill" cx="50" cy="50" r="40" style="stroke-dashoffset: ${157 - (157 * (stats.total ? stats.in_progress/stats.total : 0))}" />
+                <circle class="gauge-fill" cx="50" cy="50" r="40" style="stroke-dashoffset: ${157 - (157 * (stats.total ? stats.in_progress / stats.total : 0))}" />
               </svg>
             </div>
           </div>
@@ -695,8 +698,8 @@ async function renderDashboard(el){
       </div>
     `;
 
-    el.innerHTML=`
-      <div class="page-header a1"><h1>Good ${greet}, <span>${session.name.split(" ")[0]}</span></h1><p>${new Date().toLocaleDateString("en-IN",{weekday:"long",day:"numeric",month:"long",year:"numeric"})}</p></div>
+    el.innerHTML = `
+      <div class="page-header a1"><h1>Good ${greet}, <span>${session.name.split(" ")[0]}</span></h1><p>${new Date().toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}</p></div>
       ${principalStats}
       <div class="two-col a3">
         <div class="card">
@@ -705,18 +708,18 @@ async function renderDashboard(el){
             ${Object.keys(cats).length ? `
               <div style="height: 150px; display: flex; align-items: flex-end; gap: 12px;">
                 ${(() => {
-                  const catColors = [
-                    { s: "#3b82f6", g: "linear-gradient(135deg, #3b82f6, #1d4ed8)" },
-                    { s: "#10b981", g: "linear-gradient(135deg, #10b981, #059669)" },
-                    { s: "#f59e0b", g: "linear-gradient(135deg, #f59e0b, #d97706)" },
-                    { s: "#a855f7", g: "linear-gradient(135deg, #a855f7, #7c3aed)" },
-                    { s: "#ef4444", g: "linear-gradient(135deg, #ef4444, #b91c1c)" },
-                    { s: "#06b6d4", g: "linear-gradient(135deg, #06b6d4, #0891b2)" }
-                  ];
-                  return Object.entries(cats).map(([cat, cnt], i) => {
-                    const color = catColors[i % catColors.length];
-                    const h = (cnt/maxCat*100);
-                    return `
+          const catColors = [
+            { s: "#3b82f6", g: "linear-gradient(135deg, #3b82f6, #1d4ed8)" },
+            { s: "#10b981", g: "linear-gradient(135deg, #10b981, #059669)" },
+            { s: "#f59e0b", g: "linear-gradient(135deg, #f59e0b, #d97706)" },
+            { s: "#a855f7", g: "linear-gradient(135deg, #a855f7, #7c3aed)" },
+            { s: "#ef4444", g: "linear-gradient(135deg, #ef4444, #b91c1c)" },
+            { s: "#06b6d4", g: "linear-gradient(135deg, #06b6d4, #0891b2)" }
+          ];
+          return Object.entries(cats).map(([cat, cnt], i) => {
+            const color = catColors[i % catColors.length];
+            const h = (cnt / maxCat * 100);
+            return `
                       <div class="cat-dot-wrap">
                         <div class="cat-dot-val">${cnt}</div>
                         <div class="cat-dot-track">
@@ -731,8 +734,8 @@ async function renderDashboard(el){
                         <div class="cat-dot-label" title="${cat}">${cat}</div>
                       </div>
                     `;
-                  }).join("");
-                })()}
+          }).join("");
+        })()}
               </div>
             ` : `<div class="tbl-empty">No data yet</div>`}
           </div>
@@ -745,39 +748,39 @@ async function renderDashboard(el){
         </div>
       </div>
       <div class="card a4">
-        <div class="card-head"><span class="card-title">Recent Activity</span><button class="btn btn-outline btn-sm" onclick="go('${isPrincipal()?"unsolved":"complaints"}')">View All</button></div>
+        <div class="card-head"><span class="card-title">Recent Activity</span><button class="btn btn-outline btn-sm" onclick="go('${isPrincipal() ? "unsolved" : "complaints"}')">View All</button></div>
         <div class="tbl-wrap">
-          ${list.length?`<table class="text-sm">
-            <thead><tr><th>Ticket</th><th>Title</th><th>${canViewAll()?"Reporter":"Category"}</th><th>Status</th><th>Photos</th><th>Date</th><th></th></tr></thead>
+          ${list.length ? `<table class="text-sm">
+            <thead><tr><th>Ticket</th><th>Title</th><th>${canViewAll() ? "Reporter" : "Category"}</th><th>Status</th><th>Photos</th><th>Date</th><th></th></tr></thead>
             <tbody>
-              ${list.map(c=>`<tr style="transition: background 0.2s; cursor: pointer;" 
-                onmouseenter="showTableTooltip(event, '${c.ticket_id}', '${(c.title||'').replace(/'/g,"\\'")}', '${c.category||'General'}', '${c.status}', '${(c.user_name||'').replace(/'/g,"\\'")}', '${(c.description||'').replace(/'/g,"\\'")}', '${c.created_at}')" 
-                onmousemove="showTableTooltip(event, '${c.ticket_id}', '${(c.title||'').replace(/'/g,"\\'")}', '${c.category||'General'}', '${c.status}', '${(c.user_name||'').replace(/'/g,"\\'")}', '${(c.description||'').replace(/'/g,"\\'")}', '${c.created_at}')" 
+              ${list.map(c => `<tr style="transition: background 0.2s; cursor: pointer;" 
+                onmouseenter="showTableTooltip(event, '${c.ticket_id}', '${(c.title || '').replace(/'/g, "\\'")}', '${c.category || 'General'}', '${c.status}', '${(c.user_name || '').replace(/'/g, "\\'")}', '${(c.description || '').replace(/'/g, "\\'")}', '${c.created_at}')" 
+                onmousemove="showTableTooltip(event, '${c.ticket_id}', '${(c.title || '').replace(/'/g, "\\'")}', '${c.category || 'General'}', '${c.status}', '${(c.user_name || '').replace(/'/g, "\\'")}', '${(c.description || '').replace(/'/g, "\\'")}', '${c.created_at}')" 
                 onmouseleave="hideTooltip()"
                 onclick="viewTicket('${c.ticket_id}')"
               >
                 <td style="padding: 16px 12px;"><span class="mono text-sm fw-8" style="color:var(--blue);">${c.ticket_id}</span></td>
                 <td class="fw-600" style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding: 16px 12px;">${c.title}</td>
-                <td style="padding: 16px 12px;">${canViewAll()?`<span class="text-sm fw-5 text-2">${c.user_name}</span>`:`<span class="cpill c-${c.category} text-sm" style="padding:4px 10px;">${c.category}</span>`}</td>
+                <td style="padding: 16px 12px;">${canViewAll() ? `<span class="text-sm fw-5 text-2">${c.user_name}</span>` : `<span class="cpill c-${c.category} text-sm" style="padding:4px 10px;">${c.category}</span>`}</td>
                 <td style="padding: 16px 12px;">${statusBadge(c.status)}</td>
-                <td style="white-space:nowrap;padding: 16px 12px;">${c.image_before?'<span class="text-sm fw-7" style="color:var(--blue);">Before</span>':"—"} ${c.image_after?'<span class="text-sm fw-7" style="color:var(--green);">After</span>':""}</td>
+                <td style="white-space:nowrap;padding: 16px 12px;">${c.image_before ? '<span class="text-sm fw-7" style="color:var(--blue);">Before</span>' : "—"} ${c.image_after ? '<span class="text-sm fw-7" style="color:var(--green);">After</span>' : ""}</td>
                 <td class="text-sm text-2" style="padding: 16px 12px;">${c.created_at}</td>
                 <td style="padding: 16px 12px;"><button class="btn btn-ghost btn-sm" onclick="event.stopPropagation(); viewTicket('${c.ticket_id}')">View →</button></td>
               </tr>`).join("")}
             </tbody>
-          </table>`:`<div class="tbl-empty"><div class="text-2xl" style="margin-bottom:12px;">📭</div><div class="fw-7">No complaints yet</div>${canReport()?`<button class="btn btn-primary" onclick="go('report')" style="margin-top:14px;">Report an Issue</button>`:""}</div>`}
+          </table>`: `<div class="tbl-empty"><div class="text-2xl" style="margin-bottom:12px;">📭</div><div class="fw-7">No complaints yet</div>${canReport() ? `<button class="btn btn-primary" onclick="go('report')" style="margin-top:14px;">Report an Issue</button>` : ""}</div>`}
         </div>
       </div>`;
-  } catch(e){el.innerHTML=serverDownBanner();}
+  } catch (e) { el.innerHTML = serverDownBanner(); }
 }
 
 /* ══ REPORT FORM ════════════════════════════════════════════ */
-function renderReport(el){
-  if(!canReport()){
-    el.innerHTML=`<div class="card" style="padding:36px;"><div class="fw-7 text-lg">Report Issue is available only for students and faculty.</div></div>`;
+function renderReport(el) {
+  if (!canReport()) {
+    el.innerHTML = `<div class="card" style="padding:36px;"><div class="fw-7 text-lg">Report Issue is available only for students and faculty.</div></div>`;
     return;
   }
-  el.innerHTML=`
+  el.innerHTML = `
     <div class="page-header a1"><h1>Report <span>Issue</span></h1><p>Submit a campus complaint — 📧 email confirmation will be sent automatically</p></div>
     <div style="display: flex; gap: 24px; align-items: flex-start; flex-wrap: wrap;">
       
@@ -837,102 +840,102 @@ function renderReport(el){
       
     </div>`;
   loadCategories();
-  const zone=document.getElementById("file-zone");
-  zone.addEventListener("dragover",e=>{e.preventDefault();zone.classList.add("over");});
-  zone.addEventListener("dragleave",()=>zone.classList.remove("over"));
-  zone.addEventListener("drop",e=>{e.preventDefault();zone.classList.remove("over");if(e.dataTransfer.files[0])previewFile(e.dataTransfer.files[0]);});
+  const zone = document.getElementById("file-zone");
+  zone.addEventListener("dragover", e => { e.preventDefault(); zone.classList.add("over"); });
+  zone.addEventListener("dragleave", () => zone.classList.remove("over"));
+  zone.addEventListener("drop", e => { e.preventDefault(); zone.classList.remove("over"); if (e.dataTransfer.files[0]) previewFile(e.dataTransfer.files[0]); });
 }
 
-async function loadCategories(){
+async function loadCategories() {
   try {
     const res = await api("categories");
     const options = res.data.map(c => `<option value="${c.id}">${c.name}</option>`).join("");
     document.getElementById("r-cat").innerHTML = `<option value="">— Select Category</option>${options}`;
-  } catch(e) {
+  } catch (e) {
     document.getElementById("r-cat").innerHTML = `<option value="">Failed to load categories</option>`;
   }
 }
 
-function handleFile(e){if(e.target.files[0])previewFile(e.target.files[0]);}
-function previewFile(file){
-  const el=document.getElementById("file-preview"); if(!el) return;
-  const isImg=file.type.startsWith("image/");
-  let preview=isImg?`<img src="${URL.createObjectURL(file)}" style="max-width:100%;max-height:200px;border-radius:8px;border:2px solid var(--border);margin-top:8px;display:block;">`:"";
-  el.innerHTML=`<div class="file-preview"><span>📎</span><span class="file-preview-name">${file.name}</span><span class="file-preview-size">${(file.size/1024).toFixed(1)} KB</span><button class="text-lg" onclick="clearFile()" style="background:none;border:none;color:var(--text-3);cursor:pointer;margin-left:auto;">×</button></div>${preview}`;
-  window._selectedFile=file;
+function handleFile(e) { if (e.target.files[0]) previewFile(e.target.files[0]); }
+function previewFile(file) {
+  const el = document.getElementById("file-preview"); if (!el) return;
+  const isImg = file.type.startsWith("image/");
+  let preview = isImg ? `<img src="${URL.createObjectURL(file)}" style="max-width:100%;max-height:200px;border-radius:8px;border:2px solid var(--border);margin-top:8px;display:block;">` : "";
+  el.innerHTML = `<div class="file-preview"><span>📎</span><span class="file-preview-name">${file.name}</span><span class="file-preview-size">${(file.size / 1024).toFixed(1)} KB</span><button class="text-lg" onclick="clearFile()" style="background:none;border:none;color:var(--text-3);cursor:pointer;margin-left:auto;">×</button></div>${preview}`;
+  window._selectedFile = file;
 }
-function clearFile(){document.getElementById("file-preview").innerHTML="";document.getElementById("r-file").value="";window._selectedFile=null;}
+function clearFile() { document.getElementById("file-preview").innerHTML = ""; document.getElementById("r-file").value = ""; window._selectedFile = null; }
 
-async function submitComplaint(){
-  const title=document.getElementById("r-title").value.trim();
-  const category=document.getElementById("r-cat").value;
-  const desc=document.getElementById("r-desc").value.trim();
-  const location=document.getElementById("r-location")?.value.trim()||"";
-  const alertEl=document.getElementById("report-alert");
-  const btn=document.getElementById("submit-btn");
-  if(!title||!category||!desc){alertEl.innerHTML=`<div class="alert alert-err"><span class="alert-ico">⚠️</span>Title, category and description required.</div>`;return;}
-  btn.disabled=true; btn.innerHTML=`<span class="spin">⟳</span> Submitting…`;
+async function submitComplaint() {
+  const title = document.getElementById("r-title").value.trim();
+  const category = document.getElementById("r-cat").value;
+  const desc = document.getElementById("r-desc").value.trim();
+  const location = document.getElementById("r-location")?.value.trim() || "";
+  const alertEl = document.getElementById("report-alert");
+  const btn = document.getElementById("submit-btn");
+  if (!title || !category || !desc) { alertEl.innerHTML = `<div class="alert alert-err"><span class="alert-ico">⚠️</span>Title, category and description required.</div>`; return; }
+  btn.disabled = true; btn.innerHTML = `<span class="spin">⟳</span> Submitting…`;
   try {
-    const fd=new FormData();
-    fd.append("title",title); fd.append("category_id",category);
-    fd.append("description",desc); fd.append("location",location);
-    if(window._selectedFile)fd.append("image",window._selectedFile);
-    const res=await api("complaints","POST",fd,true);
-    toast(`✅ ${res.message}`,"ok");
-    window._selectedFile=null; go("complaints");
-  } catch(e){
-    alertEl.innerHTML=`<div class="alert alert-err"><span class="alert-ico">⚠️</span>${e.message}</div>`;
-    btn.disabled=false; btn.innerHTML="🚀 Submit Complaint";
+    const fd = new FormData();
+    fd.append("title", title); fd.append("category_id", category);
+    fd.append("description", desc); fd.append("location", location);
+    if (window._selectedFile) fd.append("image", window._selectedFile);
+    const res = await api("complaints", "POST", fd, true);
+    toast(`✅ ${res.message}`, "ok");
+    window._selectedFile = null; go("complaints");
+  } catch (e) {
+    alertEl.innerHTML = `<div class="alert alert-err"><span class="alert-ico">⚠️</span>${e.message}</div>`;
+    btn.disabled = false; btn.innerHTML = "🚀 Submit Complaint";
   }
 }
 
 /* ══ COMPLAINTS LIST ════════════════════════════════════════ */
-async function renderComplaints(el){
+async function renderComplaints(el) {
   try {
-    const data=await api("complaints"); const list=data.data||[];
-    const statusDefs=[
-      ["all",`All (${list.length})`],
-      ["routed",`Routed (${list.filter(c=>c.status==="routed").length})`],
-      ["assigned",`Assigned (${list.filter(c=>c.status==="assigned").length})`],
-      ["in-progress",`In Progress (${list.filter(c=>c.status==="in-progress").length})`],
-      ["resolved",`Resolved (${list.filter(c=>c.status==="resolved").length})`],
-      ["escalated",`Escalated (${list.filter(c=>c.status==="escalated").length})`]
-    ].filter(([key])=>key==="all"||list.some(c=>c.status===key));
-    el.innerHTML=`
+    const data = await api("complaints"); const list = data.data || [];
+    const statusDefs = [
+      ["all", `All (${list.length})`],
+      ["routed", `Routed (${list.filter(c => c.status === "routed").length})`],
+      ["assigned", `Assigned (${list.filter(c => c.status === "assigned").length})`],
+      ["in-progress", `In Progress (${list.filter(c => c.status === "in-progress").length})`],
+      ["resolved", `Resolved (${list.filter(c => c.status === "resolved").length})`],
+      ["escalated", `Escalated (${list.filter(c => c.status === "escalated").length})`]
+    ].filter(([key]) => key === "all" || list.some(c => c.status === key));
+    el.innerHTML = `
       <div class="page-header a1"><h1>${complaintNavLabel()}</h1><p>${list.length} total · Live from database</p></div>
       <div class="flex-bc mb-20 a2" style="flex-wrap:wrap;gap:10px;">
         <div style="display:flex;gap:8px;flex-wrap:wrap;" id="filter-chips">
-          ${statusDefs.map(([s,label],index)=>`<button class="btn ${index===0?"btn-primary":"btn-outline"} btn-sm" onclick="filterChip(this,'${s}')">${label}</button>`).join("")}
+          ${statusDefs.map(([s, label], index) => `<button class="btn ${index === 0 ? "btn-primary" : "btn-outline"} btn-sm" onclick="filterChip(this,'${s}')">${label}</button>`).join("")}
         </div>
         <div class="input-icon" style="width:220px;"><span class="ico">🔍</span><input class="input" placeholder="Search…" id="search-inp" oninput="searchTickets(this.value)"></div>
       </div>
       <div id="ticket-grid" class="tickets-grid a3">
-        ${list.length?list.map(c=>ticketCard(c)).join(""):`<div class="card" style="padding:60px;text-align:center;"><div class="text-3xl" style="margin-bottom:14px;">📭</div><div class="fw-7 text-lg">No Complaints Yet</div>${canReport()?`<button class="btn btn-primary" onclick="go('report')" style="margin-top:16px;">Report an Issue</button>`:""}</div>`}
+        ${list.length ? list.map(c => ticketCard(c)).join("") : `<div class="card" style="padding:60px;text-align:center;"><div class="text-3xl" style="margin-bottom:14px;">📭</div><div class="fw-7 text-lg">No Complaints Yet</div>${canReport() ? `<button class="btn btn-primary" onclick="go('report')" style="margin-top:16px;">Report an Issue</button>` : ""}</div>`}
       </div>`;
-  } catch(e){el.innerHTML=serverDownBanner();}
+  } catch (e) { el.innerHTML = serverDownBanner(); }
 }
 
-function ticketCard(c){
-  return `<div class="tkt" data-status="${c.status}" data-title="${(c.title||"").toLowerCase()}" onclick="viewTicket('${c.ticket_id}')">
+function ticketCard(c) {
+  return `<div class="tkt" data-status="${c.status}" data-title="${(c.title || "").toLowerCase()}" onclick="viewTicket('${c.ticket_id}')">
     <div class="flex-bc"><span class="tkt-id">${c.ticket_id}</span>${statusBadge(c.status)}</div>
     <div class="tkt-ttl">${c.title}</div>
     <div class="tkt-meta">
       <span class="cpill c-${c.category}">${c.category}</span>
       <span>📅 ${c.created_at.split(" ")[0]}</span>
-      ${canViewAll()&&c.user_name?`<span>👤 ${c.user_name}</span>`:""}
-      ${c.service_unit_name?`<span>🏢 ${c.service_unit_name}</span>`:""}
-      ${isHOD()&&c.reporter_academic_department?`<span>🎓 ${c.reporter_academic_department}</span>`:""}
-      ${c.image_before?`<span class="text-xs fw-700" style="color:var(--blue);">📸 Before</span>`:""}
-      ${c.image_after?`<span class="text-xs fw-700" style="color:var(--green);">📸 After</span>`:""}
+      ${canViewAll() && c.user_name ? `<span>👤 ${c.user_name}</span>` : ""}
+      ${c.service_unit_name ? `<span>🏢 ${c.service_unit_name}</span>` : ""}
+      ${isHOD() && c.reporter_academic_department ? `<span>🎓 ${c.reporter_academic_department}</span>` : ""}
+      ${c.image_before ? `<span class="text-xs fw-700" style="color:var(--blue);">📸 Before</span>` : ""}
+      ${c.image_after ? `<span class="text-xs fw-700" style="color:var(--green);">📸 After</span>` : ""}
     </div>
-    <div class="tkt-foot"><span class="tkt-desc">${c.description.slice(0,80)}${c.description.length>80?"...":""}</span><button class="btn btn-outline btn-sm" onclick="event.stopPropagation();viewTicket('${c.ticket_id}')">Details →</button></div>
+    <div class="tkt-foot"><span class="tkt-desc">${c.description.slice(0, 80)}${c.description.length > 80 ? "..." : ""}</span><button class="btn btn-outline btn-sm" onclick="event.stopPropagation();viewTicket('${c.ticket_id}')">Details →</button></div>
   </div>`;
 }
 
-async function renderUnsolved(el){
+async function renderUnsolved(el) {
   try {
-    const data=await api("complaints?scope=principal-unsolved");
-    const list=data.data||[];
+    const data = await api("complaints?scope=principal-unsolved");
+    const list = data.data || [];
     el.innerHTML = `
       <div class="page-header a1">
         <h1>Unsolved <span>Problems</span></h1>
@@ -982,29 +985,29 @@ async function renderUnsolved(el){
         </div>
       `}
     `;
-  } catch(e){el.innerHTML=serverDownBanner();}
+  } catch (e) { el.innerHTML = serverDownBanner(); }
 }
 
-function filterChip(btn,status){document.querySelectorAll("#filter-chips .btn").forEach(b=>b.className="btn btn-outline btn-sm");btn.className="btn btn-primary btn-sm";document.querySelectorAll("#ticket-grid .tkt").forEach(el=>{el.style.display=(status==="all"||el.dataset.status===status)?"":"none";});}
-function searchTickets(q){document.querySelectorAll("#ticket-grid .tkt").forEach(el=>{el.style.display=el.dataset.title?.includes(q.toLowerCase())?"":"none";});}
+function filterChip(btn, status) { document.querySelectorAll("#filter-chips .btn").forEach(b => b.className = "btn btn-outline btn-sm"); btn.className = "btn btn-primary btn-sm"; document.querySelectorAll("#ticket-grid .tkt").forEach(el => { el.style.display = (status === "all" || el.dataset.status === status) ? "" : "none"; }); }
+function searchTickets(q) { document.querySelectorAll("#ticket-grid .tkt").forEach(el => { el.style.display = el.dataset.title?.includes(q.toLowerCase()) ? "" : "none"; }); }
 
 /* ══ TICKET DETAIL MODAL ════════════════════════════════════ */
-async function viewTicket(ticketId){
+async function viewTicket(ticketId) {
   try {
-    const c=await api(`complaints/${ticketId}`);
-    const steps=["routed","assigned","in-progress","resolved"]; const si=Math.max(steps.indexOf(c.status),0);
+    const c = await api(`complaints/${ticketId}`);
+    const steps = ["routed", "assigned", "in-progress", "resolved"]; const si = Math.max(steps.indexOf(c.status), 0);
 
-    const photoSection=()=>{
+    const photoSection = () => {
       const issueImages = c.issue_images || [];
       const resolutionImages = c.resolution_images || [];
       let html = "";
-      if(issueImages.length){
-        html += `<div style="margin-bottom:16px;"><div class="label" style="margin-bottom:8px;">📸 Student Uploaded Photos</div><div class="image-grid">${issueImages.map(img=>`<img src="${img.image_url}" class="evidence-img evidence-thumb" onclick="window.open('${img.image_url}','_blank')">`).join('')}</div></div>`;
+      if (issueImages.length) {
+        html += `<div style="margin-bottom:16px;"><div class="label" style="margin-bottom:8px;">📸 Student Uploaded Photos</div><div class="image-grid">${issueImages.map(img => `<img src="${img.image_url}" class="evidence-img evidence-thumb" onclick="window.open('${img.image_url}','_blank')">`).join('')}</div></div>`;
       }
-      if(resolutionImages.length){
-        html += `<div style="margin-bottom:16px;"><div class="label" style="margin-bottom:8px;color:var(--green);">✅ Staff Resolution Photos</div><div class="image-grid">${resolutionImages.map(img=>`<img src="${img.image_url}" class="evidence-img evidence-thumb" style="border-color:#bbf7d0;" onclick="window.open('${img.image_url}','_blank')">`).join('')}</div></div>`;
+      if (resolutionImages.length) {
+        html += `<div style="margin-bottom:16px;"><div class="label" style="margin-bottom:8px;color:var(--green);">✅ Staff Resolution Photos</div><div class="image-grid">${resolutionImages.map(img => `<img src="${img.image_url}" class="evidence-img evidence-thumb" style="border-color:#bbf7d0;" onclick="window.open('${img.image_url}','_blank')">`).join('')}</div></div>`;
       }
-      if(isStaff() && c.assigned_staff_id===session?.id && c.status!=="resolved"){
+      if (isStaff() && c.assigned_staff_id === session?.id && c.status !== "resolved") {
         html += `<div style="margin-bottom:16px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:var(--r);padding:14px;"><div class="label" style="margin-bottom:8px;color:var(--green);">Upload Fixed-Work Photos</div><p class="text-sm" style="color:var(--text-2);margin-bottom:10px;">Upload one or more proof images. This will mark the issue as resolved.</p><div class="file-zone" id="after-zone" onclick="document.getElementById('after-file').click()" style="padding:16px;"><div class="file-zone-ico text-xl">📷</div><div class="file-zone-txt text-sm"><strong>Click to upload</strong> fixed-work photos</div></div><input type="file" id="after-file" style="display:none" accept="image/*" multiple onchange="handleAfterFile(event,'${c.ticket_id}')"><div id="after-preview"></div><button class="btn btn-success btn-sm" id="upload-after-btn" style="display:none;margin-top:8px;width:100%;" onclick="uploadAfterPhoto('${c.ticket_id}')">Upload & Mark Resolved</button></div>`;
       }
       return html;
@@ -1018,119 +1021,119 @@ async function viewTicket(ticketId){
       <div class="modal-body">
         <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:18px;">${statusBadge(c.status)}<span class="cpill c-${c.category}">${c.category}</span></div>
         <div class="tracker" style="margin-bottom:20px;">
-          ${["Routed","Assigned","In Progress","Resolved"].map((l,i)=>`<div class="t-step ${i<si+1?"done":i===si+1?"active":""}"><div class="t-dot">${i<si+1?"✓":i+1}</div><div class="t-label">${l}</div></div>`).join("")}
+          ${["Routed", "Assigned", "In Progress", "Resolved"].map((l, i) => `<div class="t-step ${i < si + 1 ? "done" : i === si + 1 ? "active" : ""}"><div class="t-dot">${i < si + 1 ? "✓" : i + 1}</div><div class="t-label">${l}</div></div>`).join("")}
         </div>
-        ${canViewAll()?`<div class="reporter-card"><div class="reporter-card-title">Reporter Information</div><div class="text-sm" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;"><div><span class="text-3">Name: </span><strong>${c.user_name||"—"}</strong></div><div><span class="text-3">Email: </span><strong>${c.user_email||"—"}</strong></div><div><span class="text-3">Academic Department: </span><strong>${c.reporter_academic_department||c.user_dept||"—"}</strong></div><div><span class="text-3">Roll No: </span><strong>${c.user_roll||"—"}</strong></div><div><span class="text-3">Phone: </span><strong>${c.user_phone||"—"}</strong></div><div><span class="text-3">Submitted: </span><strong>${c.created_at}</strong></div></div></div>`:""}
-        ${c.can_view_student_photo&&c.image_before?`<div class="reporter-card"><div class="reporter-card-title">📷 Student Complaint Photo</div><div style="margin-top:10px;"><img src="${c.image_before}" alt="Complaint photo" style="width:100%;max-height:420px;object-fit:cover;border-radius:14px;border:1px solid var(--line);box-shadow:var(--shadow-sm);"></div></div>`:""}
+        ${canViewAll() ? `<div class="reporter-card"><div class="reporter-card-title">Reporter Information</div><div class="text-sm" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;"><div><span class="text-3">Name: </span><strong>${c.user_name || "—"}</strong></div><div><span class="text-3">Email: </span><strong>${c.user_email || "—"}</strong></div><div><span class="text-3">Academic Department: </span><strong>${c.reporter_academic_department || c.user_dept || "—"}</strong></div><div><span class="text-3">Roll No: </span><strong>${c.user_roll || "—"}</strong></div><div><span class="text-3">Phone: </span><strong>${c.user_phone || "—"}</strong></div><div><span class="text-3">Submitted: </span><strong>${c.created_at}</strong></div></div></div>` : ""}
+        ${c.can_view_student_photo && c.image_before ? `<div class="reporter-card"><div class="reporter-card-title">📷 Student Complaint Photo</div><div style="margin-top:10px;"><img src="${c.image_before}" alt="Complaint photo" style="width:100%;max-height:420px;object-fit:cover;border-radius:14px;border:1px solid var(--line);box-shadow:var(--shadow-sm);"></div></div>` : ""}
         <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--r-sm);padding:14px;margin-bottom:14px;">
           <div class="label" style="margin-bottom:6px;">Description</div>
           <p class="text-sm" style="line-height:1.75;">${c.description}</p>
         </div>
-        ${c.location?`<div class="text-sm" style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--r-sm);padding:11px;margin-bottom:14px;"><span class="text-3">📍 Location: </span><strong>${c.location}</strong></div>`:""}
+        ${c.location ? `<div class="text-sm" style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--r-sm);padding:11px;margin-bottom:14px;"><span class="text-3">📍 Location: </span><strong>${c.location}</strong></div>` : ""}
         ${photoSection()}
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;">
-          ${[["Service Unit",c.service_unit_name||c.dept||"—"],["Assigned Manager",c.assigned_manager_name||"—"],["Assigned Staff",c.assigned_staff_name||"Pending"],["Resolved By",c.resolved_by||"—"],["Academic Department",c.reporter_academic_department||c.user_dept||"—"],["Last Updated",c.updated_at||c.created_at]].map(([k,v])=>`<div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--r-sm);padding:11px;"><div class="label text-xs" style="margin-bottom:3px;">${k}</div><div class="fw-7 text-sm">${v}</div></div>`).join("")}
+          ${[["Service Unit", c.service_unit_name || c.dept || "—"], ["Assigned Manager", c.assigned_manager_name || "—"], ["Assigned Staff", c.assigned_staff_name || "Pending"], ["Resolved By", c.resolved_by || "—"], ["Academic Department", c.reporter_academic_department || c.user_dept || "—"], ["Last Updated", c.updated_at || c.created_at]].map(([k, v]) => `<div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--r-sm);padding:11px;"><div class="label text-xs" style="margin-bottom:3px;">${k}</div><div class="fw-7 text-sm">${v}</div></div>`).join("")}
         </div>
-        ${canAssign()&&c.status!=="resolved"?`
+        ${canAssign() && c.status !== "resolved" ? `
         <div class="divider"></div>
         <div class="label" style="margin-bottom:10px;">Assign to Staff</div>
         <div style="display:grid;grid-template-columns:1fr auto;gap:8px;margin-bottom:10px;">
           <select id="assign-staff-select" class="select"><option value="">Select staff member</option></select>
           <button class="btn btn-primary" onclick="assignTicket('${c.ticket_id}')">Assign</button>
-        </div>`:""}
-        ${isStaff()&&c.assigned_staff_id===session?.id&&c.status!=="resolved"?`
+        </div>`: ""}
+        ${isStaff() && c.assigned_staff_id === session?.id && c.status !== "resolved" ? `
         <div class="divider"></div>
         <div class="label" style="margin-bottom:10px;">Work Progress</div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;">
-          ${c.status!=="in-progress"?`<button class="btn btn-outline btn-sm" onclick="updateTicketStatus('${c.ticket_id}','in-progress')">Mark In Progress</button>`:""}
-        </div>`:""}
-        ${isAdmin()?`<div class="divider"></div><div style="display:flex;justify-content:flex-end;"><button class="btn btn-danger btn-sm" onclick="deleteTicket('${c.ticket_id}')">Delete</button></div>`:""}
-        ${c.status==="resolved"&&c.user_id===session?.id&&!c.feedback?`
+          ${c.status !== "in-progress" ? `<button class="btn btn-outline btn-sm" onclick="updateTicketStatus('${c.ticket_id}','in-progress')">Mark In Progress</button>` : ""}
+        </div>`: ""}
+        ${isAdmin() ? `<div class="divider"></div><div style="display:flex;justify-content:flex-end;"><button class="btn btn-danger btn-sm" onclick="deleteTicket('${c.ticket_id}')">Delete</button></div>` : ""}
+        ${c.status === "resolved" && c.user_id === session?.id && !c.feedback ? `
         <div class="divider"></div><div class="label">⭐ Rate Resolution Quality</div>
         <div style="display:flex;gap:7px;margin-top:10px;flex-wrap:wrap;">
-          ${[1,2,3,4,5].map(i=>`<button class="btn btn-outline btn-sm text-lg" onclick="submitFeedback('${c.ticket_id}',${i})" style="padding:8px 14px;">${"⭐".repeat(i)}</button>`).join("")}
-        </div>`:""}
-        ${c.feedback?`<div class="alert alert-ok" style="margin-top:12px;"><span class="alert-ico">⭐</span>Feedback: ${c.feedback}/5 — Thank you!</div>`:""}
+          ${[1, 2, 3, 4, 5].map(i => `<button class="btn btn-outline btn-sm text-lg" onclick="submitFeedback('${c.ticket_id}',${i})" style="padding:8px 14px;">${"⭐".repeat(i)}</button>`).join("")}
+        </div>`: ""}
+        ${c.feedback ? `<div class="alert alert-ok" style="margin-top:12px;"><span class="alert-ico">⭐</span>Feedback: ${c.feedback}/5 — Thank you!</div>` : ""}
       </div>`);
     if (canAssign()) loadStaffOptions(c.assigned_staff_id);
-  } catch(e){toast("Failed: "+e.message,"err");}
+  } catch (e) { toast("Failed: " + e.message, "err"); }
 }
 
-function handleAfterFile(e, ticketId){
-  const files=[...(e.target.files||[])]; if(!files.length) return;
-  const preview=document.getElementById("after-preview");
-  if(preview){
-    preview.innerHTML=files.map(file=>`<div class="file-preview" style="margin-top:8px;"><span>📷</span><span class="file-preview-name">${file.name}</span><span class="file-preview-size">${(file.size/1024).toFixed(1)} KB</span></div>`).join("");
+function handleAfterFile(e, ticketId) {
+  const files = [...(e.target.files || [])]; if (!files.length) return;
+  const preview = document.getElementById("after-preview");
+  if (preview) {
+    preview.innerHTML = files.map(file => `<div class="file-preview" style="margin-top:8px;"><span>📷</span><span class="file-preview-name">${file.name}</span><span class="file-preview-size">${(file.size / 1024).toFixed(1)} KB</span></div>`).join("");
   }
-  const btn=document.getElementById("upload-after-btn");
-  if(btn) btn.style.display="";
-  window._afterFiles=files;
+  const btn = document.getElementById("upload-after-btn");
+  if (btn) btn.style.display = "";
+  window._afterFiles = files;
 }
 
-async function uploadAfterPhoto(ticketId){
-  if(!window._afterFiles||!window._afterFiles.length){toast("Please select photo first","err");return;}
-  const btn=document.getElementById("upload-after-btn");
-  btn.disabled=true; btn.innerHTML=`<span class="spin">⟳</span> Uploading…`;
+async function uploadAfterPhoto(ticketId) {
+  if (!window._afterFiles || !window._afterFiles.length) { toast("Please select photo first", "err"); return; }
+  const btn = document.getElementById("upload-after-btn");
+  btn.disabled = true; btn.innerHTML = `<span class="spin">⟳</span> Uploading…`;
   try {
-    const fd=new FormData(); window._afterFiles.forEach(file=>fd.append("images",file));
-    const res=await fetch(`${API}/complaints/${ticketId}/after-photo`,{method:"POST",headers:{Authorization:`Bearer ${token}`},body:fd});
-    const data=await res.json();
-    if(!res.ok) throw new Error(data.error);
-    toast("✅ "+data.message,"ok");
-    window._afterFiles=null; closeModal(); setTimeout(() => window.location.reload(), 1000);
-  } catch(e){toast(e.message,"err");btn.disabled=false;btn.innerHTML="Upload & Mark Resolved";}
+    const fd = new FormData(); window._afterFiles.forEach(file => fd.append("images", file));
+    const res = await fetch(`${API}/complaints/${ticketId}/after-photo`, { method: "POST", headers: { Authorization: `Bearer ${token}` }, body: fd });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error);
+    toast("✅ " + data.message, "ok");
+    window._afterFiles = null; closeModal(); setTimeout(() => window.location.reload(), 1000);
+  } catch (e) { toast(e.message, "err"); btn.disabled = false; btn.innerHTML = "Upload & Mark Resolved"; }
 }
 
-async function assignTicket(tid){
-  const staffId=document.getElementById("assign-staff-select")?.value;
-  if(!staffId){toast("Select staff member first","err");return;}
-  try{const d=await api(`complaints/${tid}/assign`,"POST",{assigned_staff_id:Number(staffId)});toast(d.message||"Assigned successfully.","ok");closeModal();setTimeout(() => window.location.reload(), 1000);}
-  catch(e){toast(e.message,"err");}
+async function assignTicket(tid) {
+  const staffId = document.getElementById("assign-staff-select")?.value;
+  if (!staffId) { toast("Select staff member first", "err"); return; }
+  try { const d = await api(`complaints/${tid}/assign`, "POST", { assigned_staff_id: Number(staffId) }); toast(d.message || "Assigned successfully.", "ok"); closeModal(); setTimeout(() => window.location.reload(), 1000); }
+  catch (e) { toast(e.message, "err"); }
 }
 
-async function loadStaffOptions(selectedId=null){
-  const select=document.getElementById("assign-staff-select");
-  if(!select) return;
-  try{
-    const res=await api("staff/options");
+async function loadStaffOptions(selectedId = null) {
+  const select = document.getElementById("assign-staff-select");
+  if (!select) return;
+  try {
+    const res = await api("staff/options");
     if (!res.data || res.data.length === 0) {
-      select.innerHTML=`<option value="">No staff found for this unit</option>`;
+      select.innerHTML = `<option value="">No staff found for this unit</option>`;
       return;
     }
-    const options=(res.data||[]).map(s=>`<option value="${s.id}" ${Number(selectedId)===Number(s.id)?"selected":""}>${s.name} · ${s.dept||s.email||""}</option>`).join("");
-    select.innerHTML=`<option value="">Select staff member</option>${options}`;
-  }catch(e){ 
+    const options = (res.data || []).map(s => `<option value="${s.id}" ${Number(selectedId) === Number(s.id) ? "selected" : ""}>${s.name} · ${s.dept || s.email || ""}</option>`).join("");
+    select.innerHTML = `<option value="">Select staff member</option>${options}`;
+  } catch (e) {
     console.error("Failed to load staff:", e.message);
-    select.innerHTML=`<option value="">Failed to load staff</option>`; 
+    select.innerHTML = `<option value="">Failed to load staff</option>`;
   }
 }
-async function updateTicketStatus(tid,status){
-  try{await api(`complaints/${tid}`,"PUT",{status});toast(`Status → ${status}`,"ok");closeModal();setTimeout(() => window.location.reload(), 1000);}
-  catch(e){toast(e.message,"err");}
+async function updateTicketStatus(tid, status) {
+  try { await api(`complaints/${tid}`, "PUT", { status }); toast(`Status → ${status}`, "ok"); closeModal(); setTimeout(() => window.location.reload(), 1000); }
+  catch (e) { toast(e.message, "err"); }
 }
-async function deleteTicket(tid){
-  if(!confirm(`Delete ${tid}? Cannot undo.`)) return;
-  try{await api(`complaints/${tid}`,"DELETE");toast(`${tid} deleted`,"ok");closeModal();setTimeout(() => window.location.reload(), 1000);}
-  catch(e){toast(e.message,"err");}
+async function deleteTicket(tid) {
+  if (!confirm(`Delete ${tid}? Cannot undo.`)) return;
+  try { await api(`complaints/${tid}`, "DELETE"); toast(`${tid} deleted`, "ok"); closeModal(); setTimeout(() => window.location.reload(), 1000); }
+  catch (e) { toast(e.message, "err"); }
 }
-async function submitFeedback(tid,rating){
-  try{await api(`complaints/${tid}`,"PUT",{feedback:rating});toast("Feedback submitted! ⭐","ok");closeModal();setTimeout(() => window.location.reload(), 1000);}
-  catch(e){toast(e.message,"err");}
+async function submitFeedback(tid, rating) {
+  try { await api(`complaints/${tid}`, "PUT", { feedback: rating }); toast("Feedback submitted! ⭐", "ok"); closeModal(); setTimeout(() => window.location.reload(), 1000); }
+  catch (e) { toast(e.message, "err"); }
 }
 
 /* ══ MANAGE PANEL ══════════════════════════════════════════ */
-async function renderManage(el){
-  if(!canManage()){
-    el.innerHTML=`<div class="card" style="padding:36px;"><div class="fw-7 text-lg">Manager Panel is available only for service unit managers.</div></div>`;
+async function renderManage(el) {
+  if (!canManage()) {
+    el.innerHTML = `<div class="card" style="padding:36px;"><div class="fw-7 text-lg">Manager Panel is available only for service unit managers.</div></div>`;
     return;
   }
   try {
-    const [data,stats]=await Promise.all([api("complaints"),api("stats")]);
-    const list=data.data||[];
-    const routedList = list.filter(c=>c.status==="routed");
-    const assignedList = list.filter(c=>c.status==="assigned");
-    const progressList = list.filter(c=>c.status==="in-progress");
-    const resolvedList = list.filter(c=>c.status==="resolved");
+    const [data, stats] = await Promise.all([api("complaints"), api("stats")]);
+    const list = data.data || [];
+    const routedList = list.filter(c => c.status === "routed");
+    const assignedList = list.filter(c => c.status === "assigned");
+    const progressList = list.filter(c => c.status === "in-progress");
+    const resolvedList = list.filter(c => c.status === "resolved");
 
     const routedCount = routedList.length;
     const assignedCount = assignedList.length;
@@ -1140,14 +1143,14 @@ async function renderManage(el){
 
     const routedTrends = getTrendData(routedList);
     const maxRouted = Math.max(...routedTrends, 1);
-    
+
     const assignedTrends = getTrendData(assignedList);
     const maxAssigned = Math.max(...assignedTrends, 1);
 
     const resolvedTrends = getTrendData(resolvedList);
     const maxResolved = Math.max(...resolvedTrends, 1);
-    
-    el.innerHTML=`
+
+    el.innerHTML = `
       <div class="page-header a1"><h1>Manager <span>Panel</span></h1><p>Review routed complaints for your service unit and assign them to staff</p></div>
       <div class="principal-grid a2">
         <!-- Card 1: Routed (Horizontal Bars) -->
@@ -1158,7 +1161,7 @@ async function renderManage(el){
           </div>
           <div class="widget-val">${routedCount}</div>
           <div class="widget-chart" style="flex-direction: column; gap: 6px; justify-content: flex-end;">
-            ${routedTrends.slice(-4).map(v => `<div style="width: 100%; height: 6px; background: var(--surface3); border-radius: 4px; overflow: hidden;"><div style="height: 100%; width: ${Math.max((v/maxRouted*100), 5)}%; background: var(--wg-s); border-radius: 4px; transition: width 1s;"></div></div>`).join("")}
+            ${routedTrends.slice(-4).map(v => `<div style="width: 100%; height: 6px; background: var(--surface3); border-radius: 4px; overflow: hidden;"><div style="height: 100%; width: ${Math.max((v / maxRouted * 100), 5)}%; background: var(--wg-s); border-radius: 4px; transition: width 1s;"></div></div>`).join("")}
           </div>
         </div>
 
@@ -1171,8 +1174,8 @@ async function renderManage(el){
           <div class="widget-val">${assignedCount}</div>
           <div class="widget-wave">
             <svg class="wave-svg" viewBox="0 0 100 40" style="overflow:visible;">
-              <polygon points="0,40 ${assignedTrends.map((v,i) => `${i*(100/(assignedTrends.length-1))},${40 - (v/maxAssigned)*40}`).join(' ')} 100,40" fill="var(--wg-s)" style="opacity:0.2"/>
-              <polyline points="${assignedTrends.map((v,i) => `${i*(100/(assignedTrends.length-1))},${40 - (v/maxAssigned)*40}`).join(' ')}" fill="none" stroke="var(--wg-s)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              <polygon points="0,40 ${assignedTrends.map((v, i) => `${i * (100 / (assignedTrends.length - 1))},${40 - (v / maxAssigned) * 40}`).join(' ')} 100,40" fill="var(--wg-s)" style="opacity:0.2"/>
+              <polyline points="${assignedTrends.map((v, i) => `${i * (100 / (assignedTrends.length - 1))},${40 - (v / maxAssigned) * 40}`).join(' ')}" fill="none" stroke="var(--wg-s)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
             </svg>
           </div>
         </div>
@@ -1189,7 +1192,7 @@ async function renderManage(el){
               <svg viewBox="0 0 100 50" style="width:100%; height:100%; overflow:visible;">
                 <path d="M 10 50 A 40 40 0 0 1 90 50" fill="none" stroke="var(--surface3)" stroke-width="12" stroke-linecap="round"/>
                 <path d="M 10 50 A 40 40 0 0 1 90 50" fill="none" stroke="var(--wg-s)" stroke-width="12" stroke-linecap="round" 
-                  stroke-dasharray="126" stroke-dashoffset="${126 - (126 * (totalCount ? progressCount/totalCount : 0))}" style="transition: stroke-dashoffset 1s ease;"/>
+                  stroke-dasharray="126" stroke-dashoffset="${126 - (126 * (totalCount ? progressCount / totalCount : 0))}" style="transition: stroke-dashoffset 1s ease;"/>
               </svg>
             </div>
           </div>
@@ -1202,11 +1205,11 @@ async function renderManage(el){
             <div class="widget-sub">Service Quality</div>
           </div>
           <div class="widget-val">${resolvedCount}</div>
-          <div class="widget-delta up">↑ ${totalCount ? Math.round((resolvedCount/totalCount)*100) : 0}% success</div>
+          <div class="widget-delta up">↑ ${totalCount ? Math.round((resolvedCount / totalCount) * 100) : 0}% success</div>
           <div class="widget-wave">
             <svg class="wave-svg" viewBox="0 0 100 40" style="overflow:visible;">
               <path d="${getWavePath(resolvedTrends)}" stroke="var(--wg-s)" stroke-width="1.5" fill="none" stroke-dasharray="2 4"/>
-              ${resolvedTrends.map((v, i) => `<circle cx="${i * (100/(resolvedTrends.length-1))}" cy="${40 - (v/maxResolved)*40}" r="3" fill="var(--wg-s)" />`).join("")}
+              ${resolvedTrends.map((v, i) => `<circle cx="${i * (100 / (resolvedTrends.length - 1))}" cy="${40 - (v / maxResolved) * 40}" r="3" fill="var(--wg-s)" />`).join("")}
             </svg>
           </div>
         </div>
@@ -1222,44 +1225,44 @@ async function renderManage(el){
           <table id="admin-tbl">
             <thead><tr><th>Ticket</th><th>Title</th><th>Reporter</th><th>Category</th><th>Status</th><th>Complaint Photo</th><th>Resolution Photo</th><th>Date</th><th>Actions</th></tr></thead>
             <tbody>
-              ${list.length?list.map(c=>`
-                <tr data-status="${c.status}" data-title="${(c.title||"").toLowerCase()}">
+              ${list.length ? list.map(c => `
+                <tr data-status="${c.status}" data-title="${(c.title || "").toLowerCase()}">
                   <td><span class="mono text-sm fw-700" style="color:var(--blue);">${c.ticket_id}</span></td>
                   <td class="fw-600" style="max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${c.title}">${c.title}</td>
                   <td class="text-sm text-2">${c.user_name}</td>
                   <td><span class="cpill c-${c.category}">${c.category}</span></td>
                   <td>${statusBadge(c.status)}</td>
-                  <td>${c.image_before?`<a href="${c.image_before}" target="_blank" class="btn btn-outline btn-sm text-xs" style="padding:4px 8px;">📸 View</a>`:`<span class="text-3 text-xs">—</span>`}</td>
-                  <td>${c.image_after?`<a href="${c.image_after}" target="_blank" class="btn btn-success btn-sm text-xs" style="padding:4px 8px;">✅ View</a>`:`<span class="text-3 text-xs">—</span>`}</td>
+                  <td>${c.image_before ? `<a href="${c.image_before}" target="_blank" class="btn btn-outline btn-sm text-xs" style="padding:4px 8px;">📸 View</a>` : `<span class="text-3 text-xs">—</span>`}</td>
+                  <td>${c.image_after ? `<a href="${c.image_after}" target="_blank" class="btn btn-success btn-sm text-xs" style="padding:4px 8px;">✅ View</a>` : `<span class="text-3 text-xs">—</span>`}</td>
                   <td class="text-sm text-2">${c.created_at}</td>
                   <td><div style="display:flex;gap:4px;">
                     <button class="btn btn-ghost btn-sm" onclick="viewTicket('${c.ticket_id}')">View</button>
-                    ${c.status!=="resolved"?`<button class="btn btn-primary btn-sm" onclick="viewTicket('${c.ticket_id}')">Assign</button>`:""}
+                    ${c.status !== "resolved" ? `<button class="btn btn-primary btn-sm" onclick="viewTicket('${c.ticket_id}')">Assign</button>` : ""}
                   </div></td>
-                </tr>`).join(""):`<tr><td colspan="9" class="tbl-empty">No complaints yet.</td></tr>`}
+                </tr>`).join("") : `<tr><td colspan="9" class="tbl-empty">No complaints yet.</td></tr>`}
             </tbody>
           </table>
         </div>
       </div>`;
-  } catch(e){el.innerHTML=serverDownBanner();}
+  } catch (e) { el.innerHTML = serverDownBanner(); }
 }
 
-function filterTable(val){document.querySelectorAll("#admin-tbl tbody tr[data-status]").forEach(r=>{r.style.display=val==="all"||r.dataset.status===val?"":"none";});}
-function filterTableSearch(q){document.querySelectorAll("#admin-tbl tbody tr[data-title]").forEach(r=>{r.style.display=r.dataset.title?.includes(q.toLowerCase())?"":"none";});}
+function filterTable(val) { document.querySelectorAll("#admin-tbl tbody tr[data-status]").forEach(r => { r.style.display = val === "all" || r.dataset.status === val ? "" : "none"; }); }
+function filterTableSearch(q) { document.querySelectorAll("#admin-tbl tbody tr[data-title]").forEach(r => { r.style.display = r.dataset.title?.includes(q.toLowerCase()) ? "" : "none"; }); }
 
 /* == STAFF MEMBERS ========================================= */
-async function renderStaffMembers(el){
-  if(!canModifyStaff()){
-    el.innerHTML=`<div class="card" style="padding:36px;"><div class="fw-7 text-lg">Staff management is available only for managers and admin.</div></div>`;
+async function renderStaffMembers(el) {
+  if (!canModifyStaff()) {
+    el.innerHTML = `<div class="card" style="padding:36px;"><div class="fw-7 text-lg">Staff management is available only for managers and admin.</div></div>`;
     return;
   }
   try {
-    const [staffRes, unitsRes]=await Promise.all([api("staff-members"),api("service-units")]);
-    const staff=staffRes.data||[];
-    const units=unitsRes.data||[];
-    const unitOptions=units.map(u=>`<option value="${u.id}">${u.name}</option>`).join("");
-    el.innerHTML=`
-      <div class="page-header a1"><h1>Modify <span>Staff Members</span></h1><p>${isAdmin()?"Create and manage staff accounts for every service unit":"Create and manage staff accounts under your service unit"}</p></div>
+    const [staffRes, unitsRes] = await Promise.all([api("staff-members"), api("service-units")]);
+    const staff = staffRes.data || [];
+    const units = unitsRes.data || [];
+    const unitOptions = units.map(u => `<option value="${u.id}">${u.name}</option>`).join("");
+    el.innerHTML = `
+      <div class="page-header a1"><h1>Modify <span>Staff Members</span></h1><p>${isAdmin() ? "Create and manage staff accounts for every service unit" : "Create and manage staff accounts under your service unit"}</p></div>
       <div class="staff-layout a2" id="staff-layout">
         <div class="staff-left">
           <div class="card" style="width:350px;">
@@ -1272,7 +1275,7 @@ async function renderStaffMembers(el){
                 <div class="form-group"><label class="label">Phone</label><input id="staff-phone" class="input" maxlength="10" placeholder="10-digit number" oninput="this.value=this.value.replace(/\\D/g,'').slice(0,10)"></div>
                 <div class="form-group"><label class="label">Department / Skill</label><input id="staff-dept" class="input" placeholder="Electrical, Plumbing, IT"></div>
               </div>
-              ${isAdmin()?`<div class="form-group"><label class="label">Service Unit <span class="req">*</span></label><select id="staff-unit" class="select"><option value="">Select service unit</option>${unitOptions}</select></div>`:`<input id="staff-unit" type="hidden" value="${session.service_unit_id||""}">`}
+              ${isAdmin() ? `<div class="form-group"><label class="label">Service Unit <span class="req">*</span></label><select id="staff-unit" class="select"><option value="">Select service unit</option>${unitOptions}</select></div>` : `<input id="staff-unit" type="hidden" value="${session.service_unit_id || ""}">`}
               <div class="form-group"><label class="label">Temporary Password <span class="req">*</span></label><input id="staff-pass" class="input" type="password" placeholder="Minimum 6 characters"></div>
               <button class="btn btn-primary btn-full" onclick="createStaffMember()">Add Staff Member</button>
             </div>
@@ -1309,12 +1312,12 @@ async function renderStaffMembers(el){
                     <div class="widget-sub">Current Workload</div>
                   </div>
                   <div style="display: flex; align-items: flex-end; justify-content: space-between;">
-                    <div class="widget-val">${staff.reduce((sum,s)=>sum+(s.active_count||0),0)}</div>
+                    <div class="widget-val">${staff.reduce((sum, s) => sum + (s.active_count || 0), 0)}</div>
                     <div class="widget-gauge" style="height:40px; width:80px; display:flex; align-items:flex-end;">
                       <svg viewBox="0 0 100 50" style="width:100%; height:100%; overflow:visible;">
                         <path d="M 10 50 A 40 40 0 0 1 90 50" fill="none" stroke="var(--surface3)" stroke-width="12" stroke-linecap="round"/>
                         <path d="M 10 50 A 40 40 0 0 1 90 50" fill="none" stroke="var(--wg-s)" stroke-width="12" stroke-linecap="round" 
-                          stroke-dasharray="126" stroke-dashoffset="${126 - (126 * Math.min(1, staff.reduce((sum,s)=>sum+(s.active_count||0),0) / 20))}" style="transition: stroke-dashoffset 1s ease;"/>
+                          stroke-dasharray="126" stroke-dashoffset="${126 - (126 * Math.min(1, staff.reduce((sum, s) => sum + (s.active_count || 0), 0) / 20))}" style="transition: stroke-dashoffset 1s ease;"/>
                       </svg>
                     </div>
                   </div>
@@ -1343,10 +1346,10 @@ async function renderStaffMembers(el){
         <div class="card-head"><span class="card-title">Staff Details (${staff.length})</span></div>
         <div class="tbl-wrap"><table>
           <thead><tr><th>Name</th><th>Email</th><th>Phone</th><th>Department</th><th>Service Unit</th><th>Assigned</th><th>Active</th><th>Joined</th><th>Actions</th></tr></thead>
-          <tbody>${staff.length?staff.map(s=>staffRow(s, unitOptions)).join(""):`<tr><td colspan="9" class="tbl-empty">No staff members added yet.</td></tr>`}</tbody>
+          <tbody>${staff.length ? staff.map(s => staffRow(s, unitOptions)).join("") : `<tr><td colspan="9" class="tbl-empty">No staff members added yet.</td></tr>`}</tbody>
         </table></div>
       </div>`;
-  } catch(e){el.innerHTML=serverDownBanner();}
+  } catch (e) { el.innerHTML = serverDownBanner(); }
 }
 
 function toggleAddStaff() {
@@ -1363,44 +1366,44 @@ function toggleAddStaff() {
   }
 }
 
-function staffRow(s, unitOptions){
+function staffRow(s, unitOptions) {
   const encodedStaff = encodeURIComponent(JSON.stringify(s));
   return `<tr style="cursor:pointer;" data-staff="${encodedStaff}" onmousemove="showStaffTooltipData(event, this)" onmouseleave="hideTooltip()">
     <td><div class="flex-c gap-8"><div class="avatar text-xs" style="width:30px;height:30px;flex-shrink:0;">${initials(s.name)}</div><span class="fw-7">${s.name}</span></div></td>
     <td class="text-sm text-2">${s.email}</td>
-    <td class="text-sm">${s.phone||"—"}</td>
-    <td class="text-sm">${s.dept||"—"}</td>
-    <td class="text-sm">${s.service_unit_name||"—"}</td>
-    <td><span class="badge b-admin">${s.assigned_count||0}</span></td>
-    <td><span class="badge ${s.active_count?"b-progress":"b-resolved"}">${s.active_count||0}</span></td>
-    <td class="text-sm text-2">${s.created_at||"—"}</td>
+    <td class="text-sm">${s.phone || "—"}</td>
+    <td class="text-sm">${s.dept || "—"}</td>
+    <td class="text-sm">${s.service_unit_name || "—"}</td>
+    <td><span class="badge b-admin">${s.assigned_count || 0}</span></td>
+    <td><span class="badge ${s.active_count ? "b-progress" : "b-resolved"}">${s.active_count || 0}</span></td>
+    <td class="text-sm text-2">${s.created_at || "—"}</td>
     <td><div style="display:flex;gap:6px;flex-wrap:wrap;">
-      <button class="btn btn-outline btn-sm" onclick="openEditStaff(${s.id}, '${String(s.name).replace(/'/g,"\\'")}', '${String(s.phone||"").replace(/'/g,"\\'")}', '${String(s.dept||"").replace(/'/g,"\\'")}', ${s.service_unit_id||0})">Edit</button>
-      <button class="btn btn-danger btn-sm" onclick="deleteStaffMember(${s.id}, '${String(s.name).replace(/'/g,"\\'")}')">Delete</button>
+      <button class="btn btn-outline btn-sm" onclick="openEditStaff(${s.id}, '${String(s.name).replace(/'/g, "\\'")}', '${String(s.phone || "").replace(/'/g, "\\'")}', '${String(s.dept || "").replace(/'/g, "\\'")}', ${s.service_unit_id || 0})">Edit</button>
+      <button class="btn btn-danger btn-sm" onclick="deleteStaffMember(${s.id}, '${String(s.name).replace(/'/g, "\\'")}')">Delete</button>
     </div></td>
   </tr>`;
 }
 
-async function createStaffMember(){
-  const body={
-    name:document.getElementById("staff-name")?.value.trim(),
-    email:document.getElementById("staff-email")?.value.trim(),
-    phone:document.getElementById("staff-phone")?.value.trim(),
-    dept:document.getElementById("staff-dept")?.value.trim(),
-    service_unit_id:Number(document.getElementById("staff-unit")?.value||0),
-    password:document.getElementById("staff-pass")?.value
+async function createStaffMember() {
+  const body = {
+    name: document.getElementById("staff-name")?.value.trim(),
+    email: document.getElementById("staff-email")?.value.trim(),
+    phone: document.getElementById("staff-phone")?.value.trim(),
+    dept: document.getElementById("staff-dept")?.value.trim(),
+    service_unit_id: Number(document.getElementById("staff-unit")?.value || 0),
+    password: document.getElementById("staff-pass")?.value
   };
-  const alertEl=document.getElementById("staff-alert");
-  if(!body.name||!body.email||!body.password){alertEl.innerHTML=`<div class="alert alert-err"><span class="alert-ico">⚠️</span>Name, email and password required.</div>`;return;}
-  if(isAdmin()&&!body.service_unit_id){alertEl.innerHTML=`<div class="alert alert-err"><span class="alert-ico">⚠️</span>Select service unit.</div>`;return;}
-  try{
-    const res=await api("staff-members","POST",body);
-    toast(res.message||"Staff member added","ok");
+  const alertEl = document.getElementById("staff-alert");
+  if (!body.name || !body.email || !body.password) { alertEl.innerHTML = `<div class="alert alert-err"><span class="alert-ico">⚠️</span>Name, email and password required.</div>`; return; }
+  if (isAdmin() && !body.service_unit_id) { alertEl.innerHTML = `<div class="alert alert-err"><span class="alert-ico">⚠️</span>Select service unit.</div>`; return; }
+  try {
+    const res = await api("staff-members", "POST", body);
+    toast(res.message || "Staff member added", "ok");
     go("staff-members");
-  }catch(e){alertEl.innerHTML=`<div class="alert alert-err"><span class="alert-ico">⚠️</span>${e.message}</div>`;}
+  } catch (e) { alertEl.innerHTML = `<div class="alert alert-err"><span class="alert-ico">⚠️</span>${e.message}</div>`; }
 }
 
-function openEditStaff(id, name, phone, dept, serviceUnitId){
+function openEditStaff(id, name, phone, dept, serviceUnitId) {
   openModal(`
     <div class="modal-head"><div class="modal-title">Edit Staff Member</div><button class="modal-close" onclick="closeModal()">×</button></div>
     <div class="modal-body">
@@ -1409,76 +1412,76 @@ function openEditStaff(id, name, phone, dept, serviceUnitId){
         <div class="form-group"><label class="label">Phone</label><input id="edit-staff-phone" class="input" value="${phone}" maxlength="10" oninput="this.value=this.value.replace(/\\D/g,'').slice(0,10)"></div>
         <div class="form-group"><label class="label">Department / Skill</label><input id="edit-staff-dept" class="input" value="${dept}"></div>
       </div>
-      ${isAdmin()?`<div class="form-group"><label class="label">Service Unit ID</label><input id="edit-staff-unit" class="input" type="number" value="${serviceUnitId||""}"></div>`:""}
+      ${isAdmin() ? `<div class="form-group"><label class="label">Service Unit ID</label><input id="edit-staff-unit" class="input" type="number" value="${serviceUnitId || ""}"></div>` : ""}
       <div class="form-group"><label class="label">New Password</label><input id="edit-staff-pass" class="input" type="password" placeholder="Leave blank to keep old password"></div>
       <button class="btn btn-primary btn-full" onclick="saveStaffMember(${id})">Save Changes</button>
     </div>`);
 }
 
-async function saveStaffMember(id){
-  const body={
-    name:document.getElementById("edit-staff-name")?.value.trim(),
-    phone:document.getElementById("edit-staff-phone")?.value.trim(),
-    dept:document.getElementById("edit-staff-dept")?.value.trim(),
-    password:document.getElementById("edit-staff-pass")?.value
+async function saveStaffMember(id) {
+  const body = {
+    name: document.getElementById("edit-staff-name")?.value.trim(),
+    phone: document.getElementById("edit-staff-phone")?.value.trim(),
+    dept: document.getElementById("edit-staff-dept")?.value.trim(),
+    password: document.getElementById("edit-staff-pass")?.value
   };
-  const unit=document.getElementById("edit-staff-unit")?.value;
-  if(unit) body.service_unit_id=Number(unit);
-  try{
-    const res=await api(`staff-members/${id}`,"PUT",body);
-    toast(res.message||"Staff member updated","ok");
+  const unit = document.getElementById("edit-staff-unit")?.value;
+  if (unit) body.service_unit_id = Number(unit);
+  try {
+    const res = await api(`staff-members/${id}`, "PUT", body);
+    toast(res.message || "Staff member updated", "ok");
     closeModal(); go("staff-members");
-  }catch(e){toast(e.message,"err");}
+  } catch (e) { toast(e.message, "err"); }
 }
 
-async function deleteStaffMember(id,name){
-  if(!confirm(`Delete staff member "${name}"?\n\nActive assigned issues will return to Routed.`)) return;
-  try{
-    const res=await api(`staff-members/${id}`,"DELETE");
-    toast(res.message||"Staff member deleted","ok");
+async function deleteStaffMember(id, name) {
+  if (!confirm(`Delete staff member "${name}"?\n\nActive assigned issues will return to Routed.`)) return;
+  try {
+    const res = await api(`staff-members/${id}`, "DELETE");
+    toast(res.message || "Staff member deleted", "ok");
     go("staff-members");
-  }catch(e){toast(e.message,"err");}
+  } catch (e) { toast(e.message, "err"); }
 }
 
 /* ══ USERS ══════════════════════════════════════════════════ */
-async function renderUsers(el){
+async function renderUsers(el) {
   try {
-    const data=await api("users"); const list=data.data||[];
-    el.innerHTML=`
-      <div class="page-header a1"><h1>Registered <span>Users</span></h1><p>${list.length} users ${isAdmin()?"· Admin: you can delete users":""}</p></div>
+    const data = await api("users"); const list = data.data || [];
+    el.innerHTML = `
+      <div class="page-header a1"><h1>Registered <span>Users</span></h1><p>${list.length} users ${isAdmin() ? "· Admin: you can delete users" : ""}</p></div>
       <div class="card a2">
         <div class="card-head"><span class="card-title">👥 All Users</span></div>
         <div class="tbl-wrap"><table>
           <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Dept</th><th>Verified</th><th>Joined</th><th>Actions</th></tr></thead>
-          <tbody>${list.map(u=>`<tr>
+          <tbody>${list.map(u => `<tr>
             <td><div class="flex-c gap-8"><div class="avatar text-xs" style="width:30px;height:30px;flex-shrink:0;">${initials(u.name)}</div><span class="fw-7">${u.name}</span></div></td>
             <td class="text-sm text-2">${u.email}</td>
             <td><span class="badge b-${u.role}">${u.role}</span></td>
-            <td class="text-sm">${u.dept||"—"}</td>
-            <td>${u.is_verified?'<span class="text-sm fw-700" style="color:var(--green);">✅ Yes</span>':'<span class="text-sm" style="color:var(--yellow);">⚠️ Pending</span>'}</td>
+            <td class="text-sm">${u.dept || "—"}</td>
+            <td>${u.is_verified ? '<span class="text-sm fw-700" style="color:var(--green);">✅ Yes</span>' : '<span class="text-sm" style="color:var(--yellow);">⚠️ Pending</span>'}</td>
             <td class="text-sm text-2">${u.created_at}</td>
             <td><div style="display:flex;gap:6px;align-items:center;">
-              ${isAdmin()?`<select class="select text-sm" style="padding:5px 8px;width:auto;" onchange="changeRole(${u.id},this.value)"><option ${u.role==="student"?"selected":""} value="student">student</option><option ${u.role==="faculty"?"selected":""} value="faculty">faculty</option><option ${u.role==="staff"?"selected":""} value="staff">staff</option><option ${u.role==="coordinator"?"selected":""} value="coordinator">coordinator</option><option ${u.role==="admin"?"selected":""} value="admin">admin</option></select><button class="btn btn-danger btn-sm" onclick="deleteUser(${u.id},'${u.name}')" title="Delete" style="padding:5px 10px;">🗑</button>`:`<span class="text-xs text-2">${u.role}</span>`}
+              ${isAdmin() ? `<select class="select text-sm" style="padding:5px 8px;width:auto;" onchange="changeRole(${u.id},this.value)"><option ${u.role === "student" ? "selected" : ""} value="student">student</option><option ${u.role === "faculty" ? "selected" : ""} value="faculty">faculty</option><option ${u.role === "staff" ? "selected" : ""} value="staff">staff</option><option ${u.role === "coordinator" ? "selected" : ""} value="coordinator">coordinator</option><option ${u.role === "admin" ? "selected" : ""} value="admin">admin</option></select><button class="btn btn-danger btn-sm" onclick="deleteUser(${u.id},'${u.name}')" title="Delete" style="padding:5px 10px;">🗑</button>` : `<span class="text-xs text-2">${u.role}</span>`}
             </div></td>
           </tr>`).join("")}</tbody>
         </table></div>
       </div>`;
-  } catch(e){el.innerHTML=serverDownBanner();}
+  } catch (e) { el.innerHTML = serverDownBanner(); }
 }
 
-async function changeRole(uid,role){try{await api(`users/${uid}/role`,"PUT",{role});toast(`Role → ${role}`,"ok");}catch(e){toast(e.message,"err");}}
-async function deleteUser(uid,name){
-  if(!isAdmin()){toast("Only admin can delete users","err");return;}
-  if(!confirm(`DELETE user "${name}"?\n\nPermanent and cannot be undone.`)) return;
-  try{await api(`users/${uid}`,"DELETE");toast(`User ${name} deleted`,"ok");go("users");}
-  catch(e){toast(e.message,"err");}
+async function changeRole(uid, role) { try { await api(`users/${uid}/role`, "PUT", { role }); toast(`Role → ${role}`, "ok"); } catch (e) { toast(e.message, "err"); } }
+async function deleteUser(uid, name) {
+  if (!isAdmin()) { toast("Only admin can delete users", "err"); return; }
+  if (!confirm(`DELETE user "${name}"?\n\nPermanent and cannot be undone.`)) return;
+  try { await api(`users/${uid}`, "DELETE"); toast(`User ${name} deleted`, "ok"); go("users"); }
+  catch (e) { toast(e.message, "err"); }
 }
 
 /* ══ PROFILE ════════════════════════════════════════════════ */
-async function renderProfile(el){
+async function renderProfile(el) {
   try {
-    const stats=await api("stats");
-    el.innerHTML=`
+    const stats = await api("stats");
+    el.innerHTML = `
       <div class="page-header a1" style="display:flex; justify-content:space-between; align-items:center;">
         <div><h1>My <span>Profile</span></h1></div>
         <button class="btn btn-outline fw-600" id="edit-profile-btn" onclick="toggleEditProfile()" style="display:none; gap:6px;"><span class="text-base">✏️</span> Edit Profile</button>
@@ -1491,10 +1494,10 @@ async function renderProfile(el){
             
             <!-- Avatar -->
             <div style="width: 110px; height: 110px; border-radius: 50%; overflow: hidden; margin: 0 auto 16px auto; box-shadow: 0 8px 20px rgba(0,0,0,0.15); border: 3px solid #fff; position: relative; cursor: pointer;" onclick="document.getElementById('profile-img-upload').click()">
-              ${session.profile_image 
-                 ? `<img src="${session.profile_image}" alt="Avatar" style="width: 100%; height: 100%; object-fit: cover;">`
-                 : `<div class="text-2xl fw-700" style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: var(--blue-gl); color: var(--blue);">${initials(session.name)}</div>`
-              }
+              ${session.profile_image
+        ? `<img src="${session.profile_image}" alt="Avatar" style="width: 100%; height: 100%; object-fit: cover;">`
+        : `<div class="text-2xl fw-700" style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: var(--blue-gl); color: var(--blue);">${initials(session.name)}</div>`
+      }
               <div class="text-xs fw-700" style="position: absolute; bottom: 0; left: 0; right: 0; background: rgba(0,0,0,0.5); color: white; padding: 4px 0; text-align: center; text-transform: uppercase; opacity: 0; transition: opacity 0.2s;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0">Upload</div>
             </div>
             <input type="file" id="profile-img-upload" style="display:none" accept="image/*" onchange="uploadProfileImage(event)">
@@ -1506,7 +1509,7 @@ async function renderProfile(el){
             <!-- Badges -->
             <div style="margin-bottom: 24px; display: flex; gap: 8px; justify-content: center;">
               <span class="badge b-${session.role} text-xs">${session.role.toUpperCase()}</span>
-              ${session.is_verified?'<span class="text-xs fw-700" style="background:#dcfce7;color:#166534;padding:3px 10px;border-radius:20px;">✅ Verified</span>':''}
+              ${session.is_verified ? '<span class="text-xs fw-700" style="background:#dcfce7;color:#166534;padding:3px 10px;border-radius:20px;">✅ Verified</span>' : ''}
             </div>
             
             <!-- Stats as Social-like Buttons -->
@@ -1530,7 +1533,7 @@ async function renderProfile(el){
           </div>
           <div class="card a3" style="margin-top:16px;">
             <div class="card-body">
-              ${[["🎓 Department",session.dept],["📋 Roll Number",session.roll_no||"—"],["📱 Phone",session.phone||"—"],["🏫 Institution","CDGI, Indore"]].map(([k,v])=>`<div class="flex-bc text-sm" style="padding:10px;background:var(--surface2);border-radius:var(--r-sm);margin-bottom:8px;"><span class="text-2">${k}</span><span class="fw-7">${v}</span></div>`).join("")}
+              ${[["🎓 Department", session.dept], ["📋 Roll Number", session.roll_no || "—"], ["📱 Phone", session.phone || "—"], ["🏫 Institution", "CDGI, Indore"]].map(([k, v]) => `<div class="flex-bc text-sm" style="padding:10px;background:var(--surface2);border-radius:var(--r-sm);margin-bottom:8px;"><span class="text-2">${k}</span><span class="fw-7">${v}</span></div>`).join("")}
             </div>
           </div>
         </div>
@@ -1546,7 +1549,7 @@ async function renderProfile(el){
               <div class="form-group"><label class="label">Email (cannot change)</label><input class="input" value="${session.email}" disabled style="opacity:.5;"></div>
               <div class="form-group">
                 <label class="label">Phone (10 digits)</label>
-                <input id="p-phone" class="input" value="${session.phone||""}" placeholder="10-digit number" maxlength="10" oninput="this.value=this.value.replace(/\\D/g,'').slice(0,10)">
+                <input id="p-phone" class="input" value="${session.phone || ""}" placeholder="10-digit number" maxlength="10" oninput="this.value=this.value.replace(/\\D/g,'').slice(0,10)">
                 <span class="field-err" id="profile-phone-err">Must be exactly 10 digits</span>
               </div>
               <div class="divider"></div>
@@ -1560,33 +1563,33 @@ async function renderProfile(el){
           </div>
         </div>
       </div>`;
-  } catch(e){el.innerHTML=serverDownBanner();}
+  } catch (e) { el.innerHTML = serverDownBanner(); }
 }
 
-async function saveProfile(){
-  const name=document.getElementById("p-name").value.trim();
-  const phone=document.getElementById("p-phone").value.trim();
-  const pass=document.getElementById("p-pass").value;
-  if(phone&&!valPhone(phone)){document.getElementById("profile-phone-err").classList.add("show");toast("Phone must be 10 digits","err");return;}
+async function saveProfile() {
+  const name = document.getElementById("p-name").value.trim();
+  const phone = document.getElementById("p-phone").value.trim();
+  const pass = document.getElementById("p-pass").value;
+  if (phone && !valPhone(phone)) { document.getElementById("profile-phone-err").classList.add("show"); toast("Phone must be 10 digits", "err"); return; }
   document.getElementById("profile-phone-err")?.classList.remove("show");
   try {
-    const body={name,phone}; if(pass) body.password=pass;
-    const res=await api("profile","PUT",body);
-    session=res.user; localStorage.setItem("cirs_user",JSON.stringify(session));
-    document.getElementById("profile-alert").innerHTML=`<div class="alert alert-ok"><span class="alert-ico">✅</span>Profile updated!</div>`;
-    toast("Profile saved!","ok");
-  } catch(e){toast(e.message,"err");}
+    const body = { name, phone }; if (pass) body.password = pass;
+    const res = await api("profile", "PUT", body);
+    session = res.user; localStorage.setItem("cirs_user", JSON.stringify(session));
+    document.getElementById("profile-alert").innerHTML = `<div class="alert alert-ok"><span class="alert-ico">✅</span>Profile updated!</div>`;
+    toast("Profile saved!", "ok");
+  } catch (e) { toast(e.message, "err"); }
 }
 
 function toggleEditProfile() {
   const layout = document.getElementById("profile-layout");
   const topBtn = document.getElementById("edit-profile-btn");
   const floatBtn = document.getElementById("edit-profile-floating-btn");
-  
+
   if (layout) {
     layout.classList.toggle("editing");
     const isEditing = layout.classList.contains("editing");
-    
+
     if (topBtn) topBtn.style.display = isEditing ? "none" : "flex";
     if (floatBtn) floatBtn.style.display = isEditing ? "none" : "inline-block";
   }
@@ -1595,45 +1598,45 @@ function toggleEditProfile() {
 async function uploadProfileImage(event) {
   const file = event.target.files[0];
   if (!file) return;
-  
+
   const formData = new FormData();
   formData.append("image", file);
-  
+
   try {
     const res = await api("profile/image", "POST", formData, true);
     session = res.user;
     localStorage.setItem("cirs_user", JSON.stringify(session));
     toast("Profile image updated!", "ok");
     go('profile'); // Re-render profile page
-  } catch(e) {
+  } catch (e) {
     toast(e.message, "err");
   }
 }
 
 /* ══ NOTIFICATIONS ══════════════════════════════════════════ */
-async function loadNotifications(){
+async function loadNotifications() {
   try {
-    const data=await api("notifications"); const list=data.data||[]; const unread=data.unread||0;
-    const dot=document.getElementById("notif-dot"); if(dot) dot.classList.toggle("hidden",unread===0);
-    const listEl=document.getElementById("notif-list"); if(!listEl) return;
-    listEl.innerHTML=list.length?list.map(n=>`<div class="notif-item ${!n.is_read?"unread":""}"><div class="notif-msg">${n.message}</div><div class="notif-time">${n.created_at}</div></div>`).join(""):`<div class="notif-empty">No notifications yet</div>`;
-  } catch(e){}
+    const data = await api("notifications"); const list = data.data || []; const unread = data.unread || 0;
+    const dot = document.getElementById("notif-dot"); if (dot) dot.classList.toggle("hidden", unread === 0);
+    const listEl = document.getElementById("notif-list"); if (!listEl) return;
+    listEl.innerHTML = list.length ? list.map(n => `<div class="notif-item ${!n.is_read ? "unread" : ""}"><div class="notif-msg">${n.message}</div><div class="notif-time">${n.created_at}</div></div>`).join("") : `<div class="notif-empty">No notifications yet</div>`;
+  } catch (e) { }
 }
-async function markAllRead(){
-  try{await api("notifications/read-all","PUT");document.getElementById("notif-dot")?.classList.add("hidden");document.querySelectorAll(".notif-item.unread").forEach(el=>el.classList.remove("unread"));toast("All read","ok");}
-  catch(e){toast(e.message,"err");}
+async function markAllRead() {
+  try { await api("notifications/read-all", "PUT"); document.getElementById("notif-dot")?.classList.add("hidden"); document.querySelectorAll(".notif-item.unread").forEach(el => el.classList.remove("unread")); toast("All read", "ok"); }
+  catch (e) { toast(e.message, "err"); }
 }
-function toggleNotifDrop(){document.getElementById("notif-drop").classList.toggle("open");loadNotifications();}
+function toggleNotifDrop() { document.getElementById("notif-drop").classList.toggle("open"); loadNotifications(); }
 
 /* ══ MODAL ══════════════════════════════════════════════════ */
-function openModal(html){document.getElementById("modal").innerHTML=html;document.getElementById("overlay").classList.add("show");}
-function closeModal(){document.getElementById("overlay")?.classList.remove("show");window._afterFiles=null;}
+function openModal(html) { document.getElementById("modal").innerHTML = html; document.getElementById("overlay").classList.add("show"); }
+function closeModal() { document.getElementById("overlay")?.classList.remove("show"); window._afterFiles = null; }
 
 /* ══ HELPERS ════════════════════════════════════════════════ */
-function statusBadge(s){const m={"routed":"b-routed",assigned:"b-admin","in-progress":"b-progress",resolved:"b-resolved","escalated":"b-escalated",closed:"b-closed"};const l={"routed":"Routed","assigned":"Assigned","in-progress":"In Progress","resolved":"Resolved","escalated":"Escalated","closed":"Closed"};return `<span class="badge ${m[s]||"b-new"}">${l[s]||s}</span>`;}
-function serverDownBanner(){return `<div class="card" style="padding:52px;text-align:center;"><div class="text-3xl" style="margin-bottom:16px;">⚠️</div><div class="fw-7 text-xl">Server Not Running</div><p class="text-2 text-sm" style="margin-top:10px;">Run: <code style="background:var(--bg2);padding:2px 8px;border-radius:4px;">cd backend && python app.py</code></p></div>`;}
+function statusBadge(s) { const m = { "routed": "b-routed", assigned: "b-admin", "in-progress": "b-progress", resolved: "b-resolved", "escalated": "b-escalated", closed: "b-closed" }; const l = { "routed": "Routed", "assigned": "Assigned", "in-progress": "In Progress", "resolved": "Resolved", "escalated": "Escalated", "closed": "Closed" }; return `<span class="badge ${m[s] || "b-new"}">${l[s] || s}</span>`; }
+function serverDownBanner() { return `<div class="card" style="padding:52px;text-align:center;"><div class="text-3xl" style="margin-bottom:16px;">⚠️</div><div class="fw-7 text-xl">Server Not Running</div><p class="text-2 text-sm" style="margin-top:10px;">Run: <code style="background:var(--bg2);padding:2px 8px;border-radius:4px;">cd backend && python app.py</code></p></div>`; }
 
-window.addEventListener("DOMContentLoaded",()=>{
-  setTimeout(()=>{const loader=document.getElementById("loader");if(loader){loader.classList.add("done");setTimeout(()=>loader.remove(),500);}boot();},2000);
+window.addEventListener("DOMContentLoaded", () => {
+  setTimeout(() => { const loader = document.getElementById("loader"); if (loader) { loader.classList.add("done"); setTimeout(() => loader.remove(), 500); } boot(); }, 2000);
 });
 
