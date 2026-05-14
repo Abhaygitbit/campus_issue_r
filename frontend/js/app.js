@@ -11,20 +11,270 @@ let token   = localStorage.getItem("cirs_token") || null;
 let session = JSON.parse(localStorage.getItem("cirs_user") || "null");
 let section = "dashboard";
 
-function injectReadableStyles(){
-  if (document.getElementById("readable-styles")) return;
-  const style = document.createElement("style");
-  style.id = "readable-styles";
-  style.textContent = `
-    html { font-size: 18px; }
-    body, button, input, select, textarea { font-size: 1rem; }
-    p, li, .text-sm, .text-2, .text-3, .input, .select, .label, .btn, .nav-item, .card, .reporter-card, td, th { font-size: 1rem !important; }
-    h1 { font-size: clamp(2.4rem, 4vw, 3.4rem) !important; }
-    h2 { font-size: clamp(1.8rem, 3vw, 2.5rem) !important; }
-    h3 { font-size: clamp(1.3rem, 2vw, 1.8rem) !important; }
-    .btn-lg, .btn-primary, .input, .select, textarea { min-height: 52px; }
+
+
+function showTooltip(e, title, val) {
+  const t = document.getElementById("chart-tooltip");
+  if (!t) return;
+  t.innerHTML = `<div class="chart-tooltip-title">${title}</div><div class="chart-tooltip-val">${val} Complaints</div>`;
+  t.className = "chart-tooltip show";
+  t.style.left = (e.clientX + 15) + "px";
+  t.style.top = (e.clientY - 40) + "px";
+}
+
+function showTableTooltip(e, id, title, category, status, reporter, desc, date) {
+  const t = document.getElementById("chart-tooltip");
+  if (!t) return;
+  
+  const shortDesc = desc && desc.length > 120 ? desc.substring(0, 120) + "..." : (desc || "No description provided.");
+  
+  t.innerHTML = `
+    <div class="tt-head">
+      <span class="tt-id">${id}</span>
+      <span class="tt-status">${status}</span>
+    </div>
+    <div class="tt-title">${title}</div>
+    <div class="tt-meta">
+      <div class="tt-meta-item">
+        <span class="tt-meta-lbl">Category:</span>
+        <span class="tt-meta-val">${category}</span>
+      </div>
+      <div class="tt-meta-item">
+        <span class="tt-meta-lbl">Reporter:</span>
+        <span class="tt-meta-val">${reporter || 'Student/Faculty'}</span>
+      </div>
+      <div class="tt-meta-item">
+        <span class="tt-meta-lbl">Date:</span>
+        <span class="tt-meta-val" style="font-family: var(--mono); font-size: 11px;">${date || 'Recent'}</span>
+      </div>
+      <div style="margin-top: 6px; padding-top: 6px; border-top: 1px dashed rgba(255,255,255,0.1); font-size: 11.5px; color: #94a3b8; line-height: 1.4;">
+        ${shortDesc}
+      </div>
+    </div>
   `;
-  document.head.appendChild(style);
+  t.className = "chart-tooltip table-tooltip show";
+  
+  // Adjust position to stay within viewport
+  const tooltipWidth = 300; // slightly wider for description
+  let left = e.clientX + 15;
+  if (left + tooltipWidth > window.innerWidth) {
+    left = e.clientX - tooltipWidth - 15;
+  }
+  
+  let top = e.clientY + 15;
+  const tooltipHeight = t.offsetHeight || 200;
+  
+  if (top + tooltipHeight > window.innerHeight) {
+    top = e.clientY - tooltipHeight - 15;
+    if (top < 10) top = 10;
+  }
+  
+  t.style.left = left + "px";
+  t.style.top = top + "px";
+}
+
+function showStaffTooltipData(e, rowEl) {
+  const t = document.getElementById("chart-tooltip");
+  if (!t) return;
+  const s = JSON.parse(decodeURIComponent(rowEl.dataset.staff));
+  
+  t.innerHTML = `
+    <div class="tt-head">
+      <span class="tt-id" style="font-size: 13px;">${s.name}</span>
+      <span class="tt-status">${s.active_count > 0 ? "Active Issues" : "Available"}</span>
+    </div>
+    <div class="tt-meta">
+      <div class="tt-meta-item">
+        <span class="tt-meta-lbl">Email:</span>
+        <span class="tt-meta-val">${s.email}</span>
+      </div>
+      <div class="tt-meta-item">
+        <span class="tt-meta-lbl">Phone:</span>
+        <span class="tt-meta-val">${s.phone || '—'}</span>
+      </div>
+      <div class="tt-meta-item">
+        <span class="tt-meta-lbl">Dept:</span>
+        <span class="tt-meta-val">${s.dept || '—'}</span>
+      </div>
+      <div class="tt-meta-item">
+        <span class="tt-meta-lbl">Unit:</span>
+        <span class="tt-meta-val">${s.service_unit_name || '—'}</span>
+      </div>
+      <div class="tt-meta-item">
+        <span class="tt-meta-lbl">Assigned:</span>
+        <span class="tt-meta-val">${s.assigned_count || 0}</span>
+      </div>
+      <div class="tt-meta-item">
+        <span class="tt-meta-lbl">In Prog:</span>
+        <span class="tt-meta-val">${s.active_count || 0}</span>
+      </div>
+      <div class="tt-meta-item">
+        <span class="tt-meta-lbl">Joined:</span>
+        <span class="tt-meta-val" style="font-family: var(--mono); font-size: 11px;">${s.created_at || '—'}</span>
+      </div>
+    </div>
+  `;
+  t.className = "chart-tooltip table-tooltip show";
+  
+  const tooltipWidth = 280;
+  let left = e.clientX + 15;
+  if (left + tooltipWidth > window.innerWidth) left = e.clientX - tooltipWidth - 15;
+  
+  let top = e.clientY + 15;
+  const tooltipHeight = t.offsetHeight || 250; // Fallback height if offsetHeight isn't ready
+  
+  if (top + tooltipHeight > window.innerHeight) {
+    top = e.clientY - tooltipHeight - 15;
+    if (top < 10) top = 10;
+  }
+  
+  t.style.left = left + "px";
+  t.style.top = top + "px";
+}
+
+function hideTooltip() {
+  const t = document.getElementById("chart-tooltip");
+  if (t) t.className = "chart-tooltip";
+}
+
+const getWavePath = (data) => {
+  const maxTrend = Math.max(...data, 1);
+  const width = 100;
+  const height = 40;
+  const step = width / (data.length - 1);
+  const points = data.map((v, i) => ({
+    x: i * step,
+    y: height - (v / maxTrend * 25) - 8
+  }));
+  let d = `M${points[0].x} ${points[0].y}`;
+  for (let i = 0; i < points.length - 1; i++) {
+    const xc = (points[i].x + points[i+1].x) / 2;
+    const yc = (points[i].y + points[i+1].y) / 2;
+    d += ` Q ${points[i].x} ${points[i].y}, ${xc} ${yc}`;
+  }
+  d += ` T ${points[points.length-1].x} ${points[points.length-1].y}`;
+  return d;
+};
+
+const getAreaPath = (data) => {
+  const maxTrend = Math.max(...data, 1);
+  const width = 100;
+  const height = 40;
+  const step = width / (data.length - 1);
+  const points = data.map((v, i) => ({
+    x: i * step,
+    y: height - (v / maxTrend * 20) - 5
+  }));
+  let d = `M0 ${height} L${points[0].x} ${points[0].y}`;
+  for (let i = 0; i < points.length - 1; i++) {
+    const xc = (points[i].x + points[i+1].x) / 2;
+    const yc = (points[i].y + points[i+1].y) / 2;
+    d += ` Q ${points[i].x} ${points[i].y}, ${xc} ${yc}`;
+  }
+  d += ` T ${points[points.length-1].x} ${points[points.length-1].y}`;
+  d += ` L${width} ${height} Z`;
+  return d;
+};
+
+const getTrendData = (list) => {
+  const trend = [0,0,0,0,0,0,0];
+  const today = new Date();
+  today.setHours(0,0,0,0);
+  
+  list.forEach(c => {
+    if (!c.created_at) return;
+    const [y, m, d] = c.created_at.split('-');
+    if (!y || !m || !d) return;
+    const dateObj = new Date(y, m - 1, d.split(' ')[0]); // Handle 'YYYY-MM-DD HH:MM' format just in case
+    dateObj.setHours(0,0,0,0);
+    const diffDays = Math.floor((today - dateObj) / (1000 * 60 * 60 * 24));
+    
+    if (diffDays >= 0 && diffDays < 7) {
+      trend[6 - diffDays]++;
+    }
+  });
+  return trend;
+};
+
+async function showGraphDetail(type) {
+  const stats = await api("stats");
+  if (!stats) return;
+  
+  const trends = stats.trends || [0,0,0,0,0,0,0];
+  const maxTrend = Math.max(...trends, 1);
+  const titles = { total: "Total Complaints", routed: "Routed Issues", progress: "Work in Progress", resolved: "Resolved Issues" };
+  const colors = { total: "detail-blue", routed: "detail-orange", progress: "detail-purple", resolved: "detail-green" };
+  const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  const last7Days = Array.from({length: 7}, (_, i) => {
+    const d = new Date(); d.setDate(d.getDate() - (6 - i));
+    return days[d.getDay()];
+  });
+
+  const html = `
+    <div class="graph-detail-wrap ${colors[type] || ''}">
+      <div class="graph-detail-header">
+        <div>
+          <div class="graph-detail-title">${titles[type]}</div>
+          <div class="graph-detail-subtitle">In-depth analysis of campus reporting</div>
+        </div>
+        <button class="btn btn-outline btn-sm" onclick="closeModal()">Close</button>
+      </div>
+      
+      <div class="large-chart-container" style="justify-content: center; align-items: center;">
+        ${type === 'total' ? `
+          <div style="display: flex; align-items: flex-end; gap: 15px; width: 100%; height: 100%;">
+            ${trends.map((v, i) => `
+              <div class="large-bar">
+                <div class="large-bar-val">${v}</div>
+                <div class="large-bar-fill" style="height: ${Math.max((v/maxTrend*100), 5)}%"></div>
+                <div class="large-bar-label">${last7Days[i]}</div>
+              </div>
+            `).join("")}
+          </div>
+        ` : type === 'routed' || type === 'resolved' ? `
+          <div style="width: 100%; height: 100%; display: flex; flex-direction: column;">
+            <svg viewBox="0 0 100 40" style="width: 100%; height: 200px; fill: none; stroke: var(--wg-s, #3b82f6); stroke-width: 2;">
+               ${type === 'resolved' ? `<path d="${getAreaPath(trends)}" fill="var(--wg-s)" style="opacity: 0.15; stroke:none;" />` : ''}
+               <path d="${type === 'resolved' ? getAreaPath(trends).replace(' Z', '').replace('M0 40 L', 'M') : getWavePath(trends)}" stroke-width="1.5" />
+            </svg>
+            <div style="display: flex; justify-content: space-between; margin-top: 20px; padding: 0 10px;">
+              ${last7Days.map(d => `<span style="font-size: 11px; font-weight: 600; color: var(--text-3);">${d}</span>`).join("")}
+            </div>
+          </div>
+        ` : `
+          <div style="position: relative; width: 220px; height: 220px;">
+            <svg viewBox="0 0 100 100" style="transform: rotate(-90deg); width: 100%; height: 100%;">
+              <circle cx="50" cy="50" r="45" fill="none" stroke="var(--surface2)" stroke-width="8" />
+              <circle cx="50" cy="50" r="45" fill="none" stroke="var(--wg-s, #8b5cf6)" stroke-width="8" 
+                stroke-dasharray="283" 
+                stroke-dashoffset="${283 - (283 * (stats.total ? stats.in_progress/stats.total : 0))}"
+                style="transition: stroke-dashoffset 1s ease; filter: drop-shadow(0 0 10px var(--wg-s));" />
+            </svg>
+            <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center;">
+              <div style="font-size: 48px; font-weight: 800;">${stats.in_progress}</div>
+              <div style="font-size: 12px; font-weight: 700; color: var(--text-3); text-transform: uppercase;">Active</div>
+            </div>
+          </div>
+        `}
+      </div>
+
+      <div class="detail-stats-grid">
+        <div class="detail-stat-item">
+          <div class="detail-stat-label">Total Count</div>
+          <div class="detail-stat-val">${stats[type == 'total' ? 'total' : type == 'progress' ? 'in_progress' : type == 'resolved' ? 'resolved' : 'new'] || 0}</div>
+        </div>
+        <div class="detail-stat-item">
+          <div class="detail-stat-label">Avg / Day</div>
+          <div class="detail-stat-val">${(trends.reduce((a,b)=>a+b,0)/7).toFixed(1)}</div>
+        </div>
+        <div class="detail-stat-item">
+          <div class="detail-stat-label">Efficiency Rate</div>
+          <div class="detail-stat-val">${stats.resolution_rate || 0}%</div>
+        </div>
+      </div>
+    </div>
+  `;
+  openModal(html, "lg");
 }
 
 async function api(endpoint, method="GET", body=null, formData=false) {
@@ -75,7 +325,6 @@ function initials(n){return(n||"?").split(" ").map(w=>w[0]).join("").slice(0,2).
 function valPhone(p){return /^\d{10}$/.test(p);}
 
 function boot(){
-  injectReadableStyles();
   if (session && token) renderApp();
   else renderAuth("login");
 }
@@ -232,18 +481,21 @@ function renderApp(){
     <div class="shell">
       <aside class="sidebar" id="sidebar">
         <div class="sidebar-head">
-          <div class="sidebar-brand">
+          <div class="sidebar-brand" onclick="window.location.href='/'" style="cursor: pointer;" title="Go to Dashboard">
             <div class="sidebar-cdgi-logo">
               <img src="images/logo.jpg" alt="CDGI logo">
             </div>
             <div class="sidebar-brand-text"><div class="s-name">CDGI · CIRS</div><div class="s-sub">Campus Portal </div></div>
           </div>
+          <button class="sidebar-collapse-btn" onclick="toggleSidebarCollapse()" title="Collapse Sidebar">
+            <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+          </button>
         </div>
         <nav class="nav">
           ${staffLimited?`
           <div><div class="nav-section-label">My Work</div>
             <button class="nav-item active" data-s="dashboard" onclick="go('dashboard')"><span class="nav-icon">📊</span> Dashboard</button>
-            <button class="nav-item" data-s="complaints" onclick="go('complaints')"><span class="nav-icon">🛠️</span> My Assigned Issues</button>
+            <button class="nav-item" data-s="complaints" onclick="go('complaints')"><span class="nav-icon">📋</span> My Assigned Issues</button>
           </div>
           <div><div class="nav-section-label">Account</div>
             <button class="nav-item" data-s="profile" onclick="go('profile')"><span class="nav-icon">👤</span> Profile</button>
@@ -252,7 +504,7 @@ function renderApp(){
           <div><div class="nav-section-label">Main Menu</div>
             <button class="nav-item active" data-s="dashboard" onclick="go('dashboard')"><span class="nav-icon">📊</span> Dashboard</button>
             ${showReport?`<button class="nav-item" data-s="report" onclick="go('report')"><span class="nav-icon">📝</span> Report Issue</button>`:""}
-            <button class="nav-item" data-s="${complaintSection}" onclick="go('${complaintSection}')"><span class="nav-icon">🎫</span> ${complaintNavLabel()}</button>
+            <button class="nav-item" data-s="${complaintSection}" onclick="go('${complaintSection}')"><span class="nav-icon">📋</span> ${complaintNavLabel()}</button>
           </div>
           ${(showManage||showUsers||showStaffMembers)?`<div><div class="nav-section-label">Management</div>
             ${showManage?`<button class="nav-item" data-s="manage" onclick="go('manage')"><span class="nav-icon">⚙️</span> Manager Panel<span class="nav-badge" id="new-count" style="display:none">0</span></button>`:""}
@@ -266,7 +518,9 @@ function renderApp(){
         </nav>
         <div class="sidebar-foot">
           <div class="user-card" onclick="go('profile')">
-            <div class="avatar">${initials(session.name)}</div>
+            <div class="avatar" style="overflow:hidden; display:flex; align-items:center; justify-content:center;">
+              ${session.profile_image ? `<img src="${session.profile_image}" style="width:100%;height:100%;object-fit:cover;">` : initials(session.name)}
+            </div>
             <div class="user-info"><div class="u-name">${session.name}</div><div class="u-role">${session.role} · ${session.dept}</div></div>
           </div>
         </div>
@@ -292,14 +546,22 @@ function renderApp(){
                 <div id="notif-list"><div class="notif-empty">Loading…</div></div>
               </div>
             </div>
-            <div class="avatar" style="cursor:pointer;" onclick="go('profile')">${initials(session.name)}</div>
+            <div class="avatar" style="cursor:pointer; overflow:hidden; display:flex; align-items:center; justify-content:center;" onclick="go('profile')">
+              ${session.profile_image ? `<img src="${session.profile_image}" style="width:100%;height:100%;object-fit:cover;">` : initials(session.name)}
+            </div>
           </div>
         </header>
         <div class="content" id="page-content"></div>
       </main>
     </div>
     <div class="overlay" id="overlay" onclick="closeModal()"><div class="modal" id="modal" onclick="event.stopPropagation()"></div></div>
-    <div class="toasts" id="toasts"></div>`;
+    <div class="toasts" id="toasts"></div>
+    <div id="chart-tooltip" class="chart-tooltip"></div>`;
+  
+  if (localStorage.getItem('cirs_sidebar_collapsed') === 'true') {
+    document.querySelector('.shell').classList.add('collapsed');
+  }
+
   go("dashboard");
   loadNotifications();
   document.addEventListener("click",e=>{const d=document.getElementById("notif-drop"),b=document.getElementById("notif-btn");if(d&&b&&!d.contains(e.target)&&!b.contains(e.target))d.classList.remove("open");});
@@ -307,6 +569,16 @@ function renderApp(){
 
 function toggleSidebar(){document.getElementById("sidebar")?.classList.toggle("open");document.getElementById("sidebar-overlay")?.classList.toggle("show");}
 function closeSidebar(){document.getElementById("sidebar")?.classList.remove("open");document.getElementById("sidebar-overlay")?.classList.remove("show");}
+
+function toggleSidebarCollapse() {
+  const shell = document.querySelector('.shell');
+  if (shell) {
+    shell.classList.toggle('collapsed');
+    // Save preference
+    localStorage.setItem('cirs_sidebar_collapsed', shell.classList.contains('collapsed'));
+  }
+}
+
 function go(s){
   section=s;
   document.querySelectorAll(".nav-item").forEach(el=>el.classList.toggle("active",el.dataset.s===s));
@@ -330,25 +602,143 @@ async function renderDashboard(el){
     if(badge&&canManage()&&stats.new>0){badge.style.display="";badge.textContent=stats.new;}
     const cats=stats.categories||{}; const maxCat=Math.max(...Object.values(cats),1);
     const hr=new Date().getHours(); const greet=hr<12?"morning":hr<17?"afternoon":"evening";
-    const quickActions = [
-      canReport()?`<button class="btn btn-primary" onclick="go('report')" style="justify-content:flex-start;gap:14px;padding:16px;"><span style="font-size:22px;">📝</span><div style="text-align:left;"><div>Report a New Issue</div><div style="font-size:12px;opacity:.75;font-weight:400;margin-top:2px;">Submit directly to the correct service unit</div></div></button>`:"",
-      `<button class="btn btn-outline" onclick="go('${isPrincipal()?"unsolved":"complaints"}')" style="justify-content:flex-start;gap:14px;padding:16px;"><span style="font-size:22px;">🎫</span><div style="text-align:left;"><div>${complaintNavLabel()}</div><div style="font-size:12px;opacity:.75;font-weight:400;margin-top:2px;">Track complaint status and photos</div></div></button>`,
-      canManage()?`<button class="btn btn-outline" onclick="go('manage')" style="justify-content:flex-start;gap:14px;padding:16px;"><span style="font-size:22px;">⚙️</span><div style="text-align:left;"><div>Manager Panel</div><div style="font-size:12px;opacity:.75;font-weight:400;margin-top:2px;">Assign routed issues to service unit staff</div></div></button>`:"",
-      canModifyStaff()?`<button class="btn btn-outline" onclick="go('staff-members')" style="justify-content:flex-start;gap:14px;padding:16px;"><span style="font-size:22px;">👷</span><div style="text-align:left;"><div>Modify Staff Members</div><div style="font-size:12px;opacity:.75;font-weight:400;margin-top:2px;">Add, edit, and delete staff accounts</div></div></button>`:"",
-      canOpenUsers()?`<button class="btn btn-outline" onclick="go('users')" style="justify-content:flex-start;gap:14px;padding:16px;"><span style="font-size:22px;">👥</span><div style="text-align:left;"><div>Users</div><div style="font-size:12px;opacity:.75;font-weight:400;margin-top:2px;">Manage registered accounts</div></div></button>`:""
-    ].filter(Boolean).join("");
-    el.innerHTML=`
-      <div class="page-header a1"><h1>Good ${greet}, <span>${session.name.split(" ")[0]}</span> 👋</h1><p>${new Date().toLocaleDateString("en-IN",{weekday:"long",day:"numeric",month:"long",year:"numeric"})}</p></div>
-      <div class="stats a2">
-        <div class="stat s-blue"><div class="stat-top"><div class="stat-ico">🎫</div><span class="stat-delta">Total</span></div><div class="stat-val">${stats.total}</div><div class="stat-label">Total Complaints</div><div class="stat-strip"><div class="stat-strip-fill" style="width:100%"></div></div></div>
-        <div class="stat s-teal"><div class="stat-top"><div class="stat-ico">🆕</div></div><div class="stat-val">${stats.pending_assignment ?? stats.new ?? 0}</div><div class="stat-label">Routed</div><div class="stat-strip"><div class="stat-strip-fill" style="width:${stats.total?((stats.pending_assignment ?? stats.new ?? 0)/stats.total*100).toFixed(0):0}%"></div></div></div>
-        <div class="stat s-yel"><div class="stat-top"><div class="stat-ico">⏳</div></div><div class="stat-val">${stats.in_progress}</div><div class="stat-label">In Progress</div><div class="stat-strip"><div class="stat-strip-fill" style="width:${stats.total?(stats.in_progress/stats.total*100).toFixed(0):0}%"></div></div></div>
-        <div class="stat s-green"><div class="stat-top"><div class="stat-ico">✅</div><span class="stat-delta up">${stats.resolution_rate}%</span></div><div class="stat-val">${stats.resolved}</div><div class="stat-label">Resolved</div><div class="stat-strip"><div class="stat-strip-fill" style="width:${stats.resolution_rate}%"></div></div></div>
+    const quickActions = `
+      <div class="quick-action-grid">
+        ${canReport() ? `
+          <div class="q-action-tile" onclick="go('report')">
+            <div class="q-action-ico">➕</div>
+            <div class="q-action-label">Report Issue</div>
+          </div>
+        ` : ""}
+        <div class="q-action-tile" onclick="go('${isPrincipal() ? "unsolved" : "complaints"}')">
+          <div class="q-action-ico">📋</div>
+          <div class="q-action-label">${isPrincipal() ? "Unsolved" : "My Issues"}</div>
+        </div>
+        ${canModifyStaff() ? `
+          <div class="q-action-tile" onclick="go('staff-members')">
+            <div class="q-action-ico">👥</div>
+            <div class="q-action-label">Staff</div>
+          </div>
+        ` : ""}
+        ${canOpenUsers() ? `
+          <div class="q-action-tile" onclick="go('users')">
+            <div class="q-action-ico">🔑</div>
+            <div class="q-action-label">Users</div>
+          </div>
+        ` : ""}
+        <div class="q-action-tile" onclick="go('profile')">
+          <div class="q-action-ico">👤</div>
+          <div class="q-action-label">Profile</div>
+        </div>
       </div>
+    `;
+    const trends = stats.trends || [0,0,0,0,0,0,0];
+    const maxTrend = Math.max(...trends, 1);
+    
+    const principalStats = `
+      <div class="principal-grid a2">
+        <!-- Card 1: Total (Bar Chart) -->
+        <div class="widget-card w-blue" onclick="showGraphDetail('total')">
+          <div class="widget-head">
+            <div class="widget-label">Total Complaints</div>
+            <div class="widget-sub">Past 7 Days</div>
+          </div>
+          <div class="widget-val">${stats.total}</div>
+          <div class="widget-chart">
+            ${trends.map(v => `<div class="w-bar"><div class="w-bar-fill" style="height: ${Math.max((v/maxTrend*100), 10)}%"></div></div>`).join("")}
+          </div>
+        </div>
+
+        <!-- Card 2: Routed (Line Wave) -->
+        <div class="widget-card w-orange" onclick="showGraphDetail('routed')">
+          <div class="widget-head">
+            <div class="widget-label">Routed Issues</div>
+            <div class="widget-sub">Trend Analysis</div>
+          </div>
+          <div class="widget-val">${stats.pending_assignment ?? stats.new ?? 0}</div>
+          <div class="widget-wave">
+            <svg class="wave-svg" viewBox="0 0 100 40">
+              <path d="${getWavePath(trends)}" />
+            </svg>
+          </div>
+        </div>
+
+        <!-- Card 3: In Progress (Gauge) -->
+        <div class="widget-card w-purple" onclick="showGraphDetail('progress')">
+          <div class="widget-head">
+            <div class="widget-label">In Progress</div>
+            <div class="widget-sub">Live Workload</div>
+          </div>
+          <div style="display: flex; align-items: flex-end; justify-content: space-between;">
+            <div class="widget-val">${stats.in_progress}</div>
+            <div class="widget-gauge">
+              <svg class="gauge-svg" viewBox="0 0 100 100">
+                <circle class="gauge-bg" cx="50" cy="50" r="40" />
+                <circle class="gauge-fill" cx="50" cy="50" r="40" style="stroke-dashoffset: ${157 - (157 * (stats.total ? stats.in_progress/stats.total : 0))}" />
+              </svg>
+            </div>
+          </div>
+        </div>
+
+        <!-- Card 4: Resolved (Success Rate) -->
+        <div class="widget-card w-green" onclick="showGraphDetail('resolved')">
+          <div class="widget-head">
+            <div class="widget-label">Resolved</div>
+            <div class="widget-sub">Service Quality</div>
+          </div>
+          <div class="widget-val">${stats.resolved}</div>
+          <div class="widget-delta up">↑ ${stats.resolution_rate}% success</div>
+          <div class="widget-wave">
+            <svg class="wave-svg" viewBox="0 0 100 40">
+              <path d="${getAreaPath(trends)}" fill="var(--wg-s)" style="opacity: 0.2;" />
+              <path d="${getAreaPath(trends).replace(' Z', '').replace('M0 40 L', 'M')}" fill="none" stroke="var(--wg-s)" stroke-width="1" />
+            </svg>
+          </div>
+        </div>
+      </div>
+    `;
+
+    el.innerHTML=`
+      <div class="page-header a1"><h1>Good ${greet}, <span>${session.name.split(" ")[0]}</span></h1><p>${new Date().toLocaleDateString("en-IN",{weekday:"long",day:"numeric",month:"long",year:"numeric"})}</p></div>
+      ${principalStats}
       <div class="two-col a3">
         <div class="card">
-          <div class="card-head"><span class="card-title">📈 By Category</span></div>
-          <div class="card-body">${Object.keys(cats).length?`<div class="bar-chart">${Object.entries(cats).map(([cat,cnt])=>`<div class="bar-wrap"><span class="bar-num">${cnt}</span><div class="bar-col" style="height:${Math.round(cnt/maxCat*110)+10}px"></div><span class="bar-lbl">${cat.slice(0,5).toUpperCase()}</span></div>`).join("")}</div>`:`<div class="tbl-empty">No data yet</div>`}</div>
+          <div class="card-head"><span class="card-title">Analytics by Category</span></div>
+          <div class="card-body" style="padding: 30px 20px;">
+            ${Object.keys(cats).length ? `
+              <div style="height: 150px; display: flex; align-items: flex-end; gap: 12px;">
+                ${(() => {
+                  const catColors = [
+                    { s: "#3b82f6", g: "linear-gradient(135deg, #3b82f6, #1d4ed8)" },
+                    { s: "#10b981", g: "linear-gradient(135deg, #10b981, #059669)" },
+                    { s: "#f59e0b", g: "linear-gradient(135deg, #f59e0b, #d97706)" },
+                    { s: "#a855f7", g: "linear-gradient(135deg, #a855f7, #7c3aed)" },
+                    { s: "#ef4444", g: "linear-gradient(135deg, #ef4444, #b91c1c)" },
+                    { s: "#06b6d4", g: "linear-gradient(135deg, #06b6d4, #0891b2)" }
+                  ];
+                  return Object.entries(cats).map(([cat, cnt], i) => {
+                    const color = catColors[i % catColors.length];
+                    const h = (cnt/maxCat*100);
+                    return `
+                      <div class="cat-dot-wrap">
+                        <div class="cat-dot-val">${cnt}</div>
+                        <div class="cat-dot-track">
+                          <div class="cat-dot-line" style="height: ${h}%"></div>
+                          <div class="cat-dot" 
+                            style="background: ${color.g}; box-shadow: 0 0 15px ${color.s}; bottom: ${h}%; position: absolute; margin-bottom: -7px;"
+                            onmouseenter="showTooltip(event, '${cat}', '${cnt}')"
+                            onmousemove="showTooltip(event, '${cat}', '${cnt}')"
+                            onmouseleave="hideTooltip()"
+                          ></div>
+                        </div>
+                        <div class="cat-dot-label" title="${cat}">${cat}</div>
+                      </div>
+                    `;
+                  }).join("");
+                })()}
+              </div>
+            ` : `<div class="tbl-empty">No data yet</div>`}
+          </div>
         </div>
         <div class="card">
           <div class="card-head"><span class="card-title">Quick Actions</span></div>
@@ -360,9 +750,25 @@ async function renderDashboard(el){
       <div class="card a4">
         <div class="card-head"><span class="card-title">Recent Activity</span><button class="btn btn-outline btn-sm" onclick="go('${isPrincipal()?"unsolved":"complaints"}')">View All</button></div>
         <div class="tbl-wrap">
-          ${list.length?`<table><thead><tr><th>Ticket</th><th>Title</th><th>${canViewAll()?"Reporter":"Category"}</th><th>Status</th><th>Photos</th><th>Date</th><th></th></tr></thead><tbody>
-          ${list.map(c=>`<tr><td><span class="mono" style="color:var(--blue);font-size:12px;font-weight:700;">${c.ticket_id}</span></td><td style="font-weight:600;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${c.title}</td><td>${canViewAll()?`<span class="text-sm text-2">${c.user_name}</span>`:`<span class="cpill c-${c.category}">${c.category}</span>`}</td><td>${statusBadge(c.status)}</td><td style="white-space:nowrap;">${c.image_before?'<span style="color:var(--blue);font-size:12px;">📸 Before</span>':"—"} ${c.image_after?'<span style="color:var(--green);font-size:12px;">📸 After</span>':""}</td><td class="text-sm text-2">${c.created_at}</td><td><button class="btn btn-ghost btn-sm" onclick="viewTicket('${c.ticket_id}')">View →</button></td></tr>`).join("")}
-          </tbody></table>`:`<div class="tbl-empty"><div style="font-size:40px;margin-bottom:12px;">📭</div><div class="fw-7">No complaints yet</div>${canReport()?`<button class="btn btn-primary" onclick="go('report')" style="margin-top:14px;">Report an Issue</button>`:""}</div>`}
+          ${list.length?`<table style="font-size: 14.5px;">
+            <thead><tr><th>Ticket</th><th>Title</th><th>${canViewAll()?"Reporter":"Category"}</th><th>Status</th><th>Photos</th><th>Date</th><th></th></tr></thead>
+            <tbody>
+              ${list.map(c=>`<tr style="transition: background 0.2s; cursor: pointer;" 
+                onmouseenter="showTableTooltip(event, '${c.ticket_id}', '${(c.title||'').replace(/'/g,"\\'")}', '${c.category||'General'}', '${c.status}', '${(c.user_name||'').replace(/'/g,"\\'")}', '${(c.description||'').replace(/'/g,"\\'")}', '${c.created_at}')" 
+                onmousemove="showTableTooltip(event, '${c.ticket_id}', '${(c.title||'').replace(/'/g,"\\'")}', '${c.category||'General'}', '${c.status}', '${(c.user_name||'').replace(/'/g,"\\'")}', '${(c.description||'').replace(/'/g,"\\'")}', '${c.created_at}')" 
+                onmouseleave="hideTooltip()"
+                onclick="viewTicket('${c.ticket_id}')"
+              >
+                <td style="padding: 16px 12px;"><span class="mono" style="color:var(--blue);font-size:13px;font-weight:800;">${c.ticket_id}</span></td>
+                <td style="font-weight:600;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding: 16px 12px;">${c.title}</td>
+                <td style="padding: 16px 12px;">${canViewAll()?`<span style="font-size:13px;color:var(--text-2);font-weight:500;">${c.user_name}</span>`:`<span class="cpill c-${c.category}" style="font-size:12px;padding:4px 10px;">${c.category}</span>`}</td>
+                <td style="padding: 16px 12px;">${statusBadge(c.status)}</td>
+                <td style="white-space:nowrap;padding: 16px 12px;">${c.image_before?'<span style="color:var(--blue);font-size:12px;font-weight:700;">Before</span>':"—"} ${c.image_after?'<span style="color:var(--green);font-size:12px;font-weight:700;">After</span>':""}</td>
+                <td style="font-size:13px;color:var(--text-2);padding: 16px 12px;">${c.created_at}</td>
+                <td style="padding: 16px 12px;"><button class="btn btn-ghost btn-sm" onclick="event.stopPropagation(); viewTicket('${c.ticket_id}')">View →</button></td>
+              </tr>`).join("")}
+            </tbody>
+          </table>`:`<div class="tbl-empty"><div style="font-size:40px;margin-bottom:12px;">📭</div><div class="fw-7">No complaints yet</div>${canReport()?`<button class="btn btn-primary" onclick="go('report')" style="margin-top:14px;">Report an Issue</button>`:""}</div>`}
         </div>
       </div>`;
   } catch(e){el.innerHTML=serverDownBanner();}
@@ -376,54 +782,62 @@ function renderReport(el){
   }
   el.innerHTML=`
     <div class="page-header a1"><h1>Report <span>Issue</span></h1><p>Submit a campus complaint — 📧 email confirmation will be sent automatically</p></div>
-    <div style="max-width:720px;">
-      <div class="card a2">
-        <div class="card-head"><span class="card-title">🎫 Complaint Details</span></div>
-        <div class="card-body">
-          <div id="report-alert"></div>
-          <div class="form-group"><label class="label">Issue Title <span class="req">*</span></label><input id="r-title" class="input" placeholder="e.g. Broken light in Lab-2, No water in Hostel Block B"></div>
-          <div class="form-row">
-            <div class="form-group"><label class="label">Category <span class="req">*</span></label>
-              <select id="r-cat" class="select"><option value="">— Loading categories…</option></select>
+    <div style="display: flex; gap: 24px; align-items: flex-start; flex-wrap: wrap;">
+      
+      <!-- Left Column: Form -->
+      <div style="flex: 1; min-width: 320px; max-width: 720px;">
+        <div class="card a2">
+          <div class="card-head"><span class="card-title">🎫 Complaint Details</span></div>
+          <div class="card-body">
+            <div id="report-alert"></div>
+            <div class="form-group"><label class="label">Issue Title <span class="req">*</span></label><input id="r-title" class="input" placeholder="e.g. Broken light in Lab-2, No water in Hostel Block B"></div>
+            <div class="form-row">
+              <div class="form-group"><label class="label">Category <span class="req">*</span></label>
+                <select id="r-cat" class="select"><option value="">— Loading categories…</option></select>
+              </div>
             </div>
-          </div>
-          <div class="form-group"><label class="label">Location / Block</label><input id="r-location" class="input" placeholder="e.g. Main Block, 2nd Floor, Near Lab-204"></div>
-          <div class="form-group"><label class="label">Detailed Description <span class="req">*</span></label><textarea id="r-desc" class="textarea" rows="4" placeholder="Describe the issue in detail…"></textarea></div>
-          <div class="form-group">
-            <label class="label">📸 Before Photo — Evidence of Issue (Optional)</label>
-            <div class="file-zone" id="file-zone" onclick="document.getElementById('r-file').click()">
-              <div class="file-zone-ico">📷</div>
-              <div class="file-zone-txt"><strong>Click to browse</strong> or drag & drop</div>
-              <div class="file-zone-hint">Upload photo/video showing the issue · JPG·PNG·MP4 · max 32MB</div>
+            <div class="form-group"><label class="label">Location / Block</label><input id="r-location" class="input" placeholder="e.g. Main Block, 2nd Floor, Near Lab-204"></div>
+            <div class="form-group"><label class="label">Detailed Description <span class="req">*</span></label><textarea id="r-desc" class="textarea" rows="4" placeholder="Describe the issue in detail…"></textarea></div>
+            <div class="form-group">
+              <label class="label">📸 Before Photo — Evidence of Issue (Optional)</label>
+              <div class="file-zone" id="file-zone" onclick="document.getElementById('r-file').click()">
+                <div class="file-zone-ico">📷</div>
+                <div class="file-zone-txt"><strong>Click to browse</strong> or drag & drop</div>
+                <div class="file-zone-hint">Upload photo/video showing the issue · JPG·PNG·MP4 · max 32MB</div>
+              </div>
+              <input type="file" id="r-file" style="display:none" accept="image/*,video/*,.pdf" onchange="handleFile(event)">
+              <div id="file-preview"></div>
             </div>
-            <input type="file" id="r-file" style="display:none" accept="image/*,video/*,.pdf" onchange="handleFile(event)">
-            <div id="file-preview"></div>
-          </div>
-          <div style="display:flex;gap:10px;margin-top:8px;">
-            <button class="btn btn-primary btn-lg" id="submit-btn" onclick="submitComplaint()" style="flex:1;">🚀 Submit Complaint</button>
-            <button class="btn btn-outline btn-lg" onclick="go(isStaff()?'complaints':'dashboard')">Cancel</button>
-          </div>
-        </div>
-      </div>
-      <div class="card a3" style="margin-top:16px;">
-        <div class="card-body">
-          <p style="font-size:14px;color:var(--text-2);margin-bottom:14px;font-weight:600;">📧 Email Notification Flow:</p>
-          <div style="display:grid;gap:8px;font-size:13px;">
-            <div style="display:flex;align-items:center;gap:10px;padding:10px;background:var(--surface2);border-radius:8px;border-left:3px solid var(--blue);">
-              <span style="font-size:18px;">1️⃣</span><div><strong>You submit complaint</strong><br><span style="color:var(--text-3);">→ Auto email sent: "Complaint Routed"</span></div>
-            </div>
-            <div style="display:flex;align-items:center;gap:10px;padding:10px;background:var(--surface2);border-radius:8px;border-left:3px solid var(--yellow);">
-              <span style="font-size:18px;">2️⃣</span><div><strong>Service Unit Manager assigns to staff</strong><br><span style="color:var(--text-3);">→ Auto email: "Issue Assigned to You"</span></div>
-            </div>
-            <div style="display:flex;align-items:center;gap:10px;padding:10px;background:var(--surface2);border-radius:8px;border-left:3px solid var(--orange);">
-              <span style="font-size:18px;">3️⃣</span><div><strong>Staff marks In Progress or Resolved</strong><br><span style="color:var(--text-3);">→ Auto email: "Status Update"</span></div>
-            </div>
-            <div style="display:flex;align-items:center;gap:10px;padding:10px;background:var(--surface2);border-radius:8px;border-left:3px solid var(--green);">
-              <span style="font-size:18px;">4️⃣</span><div><strong>Staff uploads After Photo → Resolved</strong><br><span style="color:var(--text-3);">→ Auto email: "Issue Resolved" + After photo</span></div>
+            <div style="display:flex;gap:10px;margin-top:8px;">
+              <button class="btn btn-primary btn-lg" id="submit-btn" onclick="submitComplaint()" style="flex:1;">🚀 Submit Complaint</button>
+              <button class="btn btn-outline btn-lg" onclick="go(isStaff()?'complaints':'dashboard')">Cancel</button>
             </div>
           </div>
         </div>
       </div>
+      
+      <!-- Right Column: Email Flow -->
+      <div class="card a3" style="width: 380px; flex-shrink: 0; position: sticky; top: 80px;">
+        <div class="card-head"><span class="card-title">📧 Email Notification Flow</span></div>
+        <div class="card-body">
+          <p style="font-size:13px;color:var(--text-2);margin-bottom:16px;">This system automatically sends updates to your registered email address at each stage of the resolution process.</p>
+          <div style="display:grid;gap:12px;font-size:13px;">
+            <div style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--surface2);border-radius:10px;border-left:4px solid var(--blue);">
+              <span style="font-size:20px;">1️⃣</span><div><strong>You submit complaint</strong><br><span style="color:var(--text-3);font-size:12px;">→ Auto email sent: "Complaint Routed"</span></div>
+            </div>
+            <div style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--surface2);border-radius:10px;border-left:4px solid var(--yellow);">
+              <span style="font-size:20px;">2️⃣</span><div><strong>Assigned to staff</strong><br><span style="color:var(--text-3);font-size:12px;">→ Auto email: "Issue Assigned to You"</span></div>
+            </div>
+            <div style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--surface2);border-radius:10px;border-left:4px solid var(--orange);">
+              <span style="font-size:20px;">3️⃣</span><div><strong>Marked In Progress</strong><br><span style="color:var(--text-3);font-size:12px;">→ Auto email: "Status Update"</span></div>
+            </div>
+            <div style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--surface2);border-radius:10px;border-left:4px solid var(--green);">
+              <span style="font-size:20px;">4️⃣</span><div><strong>Issue Resolved</strong><br><span style="color:var(--text-3);font-size:12px;">→ Auto email: "Issue Resolved" + After photo</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      
     </div>`;
   loadCategories();
   const zone=document.getElementById("file-zone");
@@ -522,26 +936,55 @@ async function renderUnsolved(el){
   try {
     const data=await api("complaints?scope=principal-unsolved");
     const list=data.data||[];
-    el.innerHTML=`
-      <div class="page-header a1"><h1>Unsolved <span>Problems</span></h1><p>Issues that crossed 48 hours after assignment or were escalated</p></div>
-      <div style="display:grid;gap:16px;" class="a2">
-        ${list.length?list.map(c=>`
-          <div class="card">
-            <div class="card-head"><div><div class="mono" style="font-size:12px;color:var(--blue);font-weight:700;">${c.ticket_id}</div><div class="card-title">${c.title}</div></div>${statusBadge(c.status)}</div>
-            <div class="card-body">
-              <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--r-sm);padding:14px;margin-bottom:14px;color:var(--text-1);line-height:1.7;">
-                This issue has crossed 48 hours after assignment. Manager <strong>${c.assigned_manager_name||"Unknown Manager"}</strong> from <strong>${c.service_unit_name||"Unknown Service Unit"}</strong> assigned it to <strong>${c.assigned_staff_name||"Not assigned"}</strong>. Complaint raised by <strong>${c.user_name||"Unknown Reporter"}</strong> from <strong>${c.reporter_academic_department||c.user_dept||"Unknown Department"}</strong>.
+    el.innerHTML = `
+      <div class="page-header a1">
+        <h1>Unsolved <span>Problems</span></h1>
+        <p>Issues across all departments that have exceeded the 48-hour resolution window</p>
+      </div>
+      
+      ${list.length ? `
+        <div class="unsolved-grid a2">
+          ${list.map(c => `
+            <div class="unsolved-card">
+              <div class="unsolved-card-header">
+                <div class="unsolved-id">${c.ticket_id}</div>
+                <div class="unsolved-time">
+                  <span style="font-size:14px;">🚨</span> ESCALATED
+                </div>
               </div>
-              <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-bottom:12px;">
-                ${[["Service Unit",c.service_unit_name||"—"],["Manager",c.assigned_manager_name||"—"],["Staff",c.assigned_staff_name||"Not assigned"],["Academic Department",c.reporter_academic_department||c.user_dept||"—"]].map(([k,v])=>`<div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--r-sm);padding:11px;"><div class="label" style="font-size:10px;margin-bottom:3px;">${k}</div><div class="fw-7" style="font-size:13.5px;">${v}</div></div>`).join("")}
+              
+              <div class="unsolved-title">${c.title}</div>
+              
+              <div class="unsolved-meta">
+                <div class="unsolved-meta-item">
+                  <div class="unsolved-meta-ico">🏢</div>
+                  <div><strong>${c.service_unit_name || "Unassigned Unit"}</strong></div>
+                </div>
+                <div class="unsolved-meta-item">
+                  <div class="unsolved-meta-ico">👨‍💼</div>
+                  <div>Manager: <strong>${c.assigned_manager_name || "Pending"}</strong></div>
+                </div>
+                <div class="unsolved-meta-item">
+                  <div class="unsolved-meta-ico">👤</div>
+                  <div>Reporter: <strong>${c.user_name}</strong></div>
+                </div>
               </div>
-              <div style="display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap;">
-                <div class="text-sm text-2">${c.description}</div>
-                <button class="btn btn-outline btn-sm" onclick="viewTicket('${c.ticket_id}')">View Details</button>
+              
+              <div class="unsolved-footer">
+                <button class="btn btn-primary btn-sm btn-full" onclick="viewTicket('${c.ticket_id}')">Take Action</button>
+                <button class="btn btn-outline btn-sm" onclick="viewTicket('${c.ticket_id}')">Details</button>
               </div>
             </div>
-          </div>`).join(""):`<div class="card" style="padding:44px;text-align:center;"><div class="fw-7" style="font-size:20px;">No unsolved problems right now.</div></div>`}
-      </div>`;
+          `).join("")}
+        </div>
+      ` : `
+        <div class="card a2" style="padding:60px; text-align:center;">
+          <div style="font-size:50px; margin-bottom:20px;">✅</div>
+          <div class="fw-7" style="font-size:22px; color:var(--text-1);">All systems normal!</div>
+          <p class="text-3" style="margin-top:10px;">There are no unsolved problems requiring your immediate attention.</p>
+        </div>
+      `}
+    `;
   } catch(e){el.innerHTML=serverDownBanner();}
 }
 
@@ -637,14 +1080,14 @@ async function uploadAfterPhoto(ticketId){
     const data=await res.json();
     if(!res.ok) throw new Error(data.error);
     toast("✅ "+data.message,"ok");
-    window._afterFiles=null; closeModal(); go(section);
+    window._afterFiles=null; closeModal(); setTimeout(() => window.location.reload(), 1000);
   } catch(e){toast(e.message,"err");btn.disabled=false;btn.innerHTML="Upload & Mark Resolved";}
 }
 
 async function assignTicket(tid){
   const staffId=document.getElementById("assign-staff-select")?.value;
   if(!staffId){toast("Select staff member first","err");return;}
-  try{const d=await api(`complaints/${tid}/assign`,"POST",{assigned_staff_id:Number(staffId)});toast(d.message||"Assigned successfully.","ok");closeModal();go(section);}
+  try{const d=await api(`complaints/${tid}/assign`,"POST",{assigned_staff_id:Number(staffId)});toast(d.message||"Assigned successfully.","ok");closeModal();setTimeout(() => window.location.reload(), 1000);}
   catch(e){toast(e.message,"err");}
 }
 
@@ -665,16 +1108,16 @@ async function loadStaffOptions(selectedId=null){
   }
 }
 async function updateTicketStatus(tid,status){
-  try{await api(`complaints/${tid}`,"PUT",{status});toast(`Status → ${status}`,"ok");closeModal();go(section);}
+  try{await api(`complaints/${tid}`,"PUT",{status});toast(`Status → ${status}`,"ok");closeModal();setTimeout(() => window.location.reload(), 1000);}
   catch(e){toast(e.message,"err");}
 }
 async function deleteTicket(tid){
   if(!confirm(`Delete ${tid}? Cannot undo.`)) return;
-  try{await api(`complaints/${tid}`,"DELETE");toast(`${tid} deleted`,"ok");closeModal();go(section);}
+  try{await api(`complaints/${tid}`,"DELETE");toast(`${tid} deleted`,"ok");closeModal();setTimeout(() => window.location.reload(), 1000);}
   catch(e){toast(e.message,"err");}
 }
 async function submitFeedback(tid,rating){
-  try{await api(`complaints/${tid}`,"PUT",{feedback:rating});toast("Feedback submitted! ⭐","ok");closeModal();go(section);}
+  try{await api(`complaints/${tid}`,"PUT",{feedback:rating});toast("Feedback submitted! ⭐","ok");closeModal();setTimeout(() => window.location.reload(), 1000);}
   catch(e){toast(e.message,"err");}
 }
 
@@ -687,10 +1130,89 @@ async function renderManage(el){
   try {
     const [data,stats]=await Promise.all([api("complaints"),api("stats")]);
     const list=data.data||[];
+    const routedList = list.filter(c=>c.status==="routed");
+    const assignedList = list.filter(c=>c.status==="assigned");
+    const progressList = list.filter(c=>c.status==="in-progress");
+    const resolvedList = list.filter(c=>c.status==="resolved");
+
+    const routedCount = routedList.length;
+    const assignedCount = assignedList.length;
+    const progressCount = progressList.length;
+    const resolvedCount = resolvedList.length;
+    const totalCount = list.length;
+
+    const routedTrends = getTrendData(routedList);
+    const maxRouted = Math.max(...routedTrends, 1);
+    
+    const assignedTrends = getTrendData(assignedList);
+    const maxAssigned = Math.max(...assignedTrends, 1);
+
+    const resolvedTrends = getTrendData(resolvedList);
+    const maxResolved = Math.max(...resolvedTrends, 1);
+    
     el.innerHTML=`
       <div class="page-header a1"><h1>Manager <span>Panel</span></h1><p>Review routed complaints for your service unit and assign them to staff</p></div>
-      <div class="stats a2" style="grid-template-columns:repeat(4,1fr);">
-        ${[["routed","🔀","Routed","s-teal"],["assigned","📌","Assigned","s-blue"],["in-progress","⏳","In Progress","s-yel"],["resolved","✅","Resolved","s-green"]].map(([s,ico,lbl,cls])=>`<div class="stat ${cls}"><div class="stat-top"><div class="stat-ico">${ico}</div></div><div class="stat-val">${list.filter(c=>c.status===s).length}</div><div class="stat-label">${lbl}</div></div>`).join("")}
+      <div class="principal-grid a2">
+        <!-- Card 1: Routed (Horizontal Bars) -->
+        <div class="widget-card w-teal">
+          <div class="widget-head">
+            <div class="widget-label">Routed</div>
+            <div class="widget-sub">Needs Assignment</div>
+          </div>
+          <div class="widget-val">${routedCount}</div>
+          <div class="widget-chart" style="flex-direction: column; gap: 6px; justify-content: flex-end;">
+            ${routedTrends.slice(-4).map(v => `<div style="width: 100%; height: 6px; background: var(--surface3); border-radius: 4px; overflow: hidden;"><div style="height: 100%; width: ${Math.max((v/maxRouted*100), 5)}%; background: var(--wg-s); border-radius: 4px; transition: width 1s;"></div></div>`).join("")}
+          </div>
+        </div>
+
+        <!-- Card 2: Assigned (Polygon Area) -->
+        <div class="widget-card w-blue">
+          <div class="widget-head">
+            <div class="widget-label">Assigned</div>
+            <div class="widget-sub">Pending Work</div>
+          </div>
+          <div class="widget-val">${assignedCount}</div>
+          <div class="widget-wave">
+            <svg class="wave-svg" viewBox="0 0 100 40" style="overflow:visible;">
+              <polygon points="0,40 ${assignedTrends.map((v,i) => `${i*(100/(assignedTrends.length-1))},${40 - (v/maxAssigned)*40}`).join(' ')} 100,40" fill="var(--wg-s)" style="opacity:0.2"/>
+              <polyline points="${assignedTrends.map((v,i) => `${i*(100/(assignedTrends.length-1))},${40 - (v/maxAssigned)*40}`).join(' ')}" fill="none" stroke="var(--wg-s)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+        </div>
+
+        <!-- Card 3: In Progress (Half Gauge) -->
+        <div class="widget-card w-purple">
+          <div class="widget-head">
+            <div class="widget-label">In Progress</div>
+            <div class="widget-sub">Live Workload</div>
+          </div>
+          <div style="display: flex; align-items: flex-end; justify-content: space-between;">
+            <div class="widget-val">${progressCount}</div>
+            <div class="widget-gauge" style="height:40px; width:80px; display:flex; align-items:flex-end;">
+              <svg viewBox="0 0 100 50" style="width:100%; height:100%; overflow:visible;">
+                <path d="M 10 50 A 40 40 0 0 1 90 50" fill="none" stroke="var(--surface3)" stroke-width="12" stroke-linecap="round"/>
+                <path d="M 10 50 A 40 40 0 0 1 90 50" fill="none" stroke="var(--wg-s)" stroke-width="12" stroke-linecap="round" 
+                  stroke-dasharray="126" stroke-dashoffset="${126 - (126 * (totalCount ? progressCount/totalCount : 0))}" style="transition: stroke-dashoffset 1s ease;"/>
+              </svg>
+            </div>
+          </div>
+        </div>
+
+        <!-- Card 4: Resolved (Scatter Plot) -->
+        <div class="widget-card w-green">
+          <div class="widget-head">
+            <div class="widget-label">Resolved</div>
+            <div class="widget-sub">Service Quality</div>
+          </div>
+          <div class="widget-val">${resolvedCount}</div>
+          <div class="widget-delta up">↑ ${totalCount ? Math.round((resolvedCount/totalCount)*100) : 0}% success</div>
+          <div class="widget-wave">
+            <svg class="wave-svg" viewBox="0 0 100 40" style="overflow:visible;">
+              <path d="${getWavePath(resolvedTrends)}" stroke="var(--wg-s)" stroke-width="1.5" fill="none" stroke-dasharray="2 4"/>
+              ${resolvedTrends.map((v, i) => `<circle cx="${i * (100/(resolvedTrends.length-1))}" cy="${40 - (v/maxResolved)*40}" r="3" fill="var(--wg-s)" />`).join("")}
+            </svg>
+          </div>
+        </div>
       </div>
       <div class="card a3">
         <div class="card-head"><span class="card-title">Service Unit Issues (${list.length})</span>
@@ -741,33 +1263,85 @@ async function renderStaffMembers(el){
     const unitOptions=units.map(u=>`<option value="${u.id}">${u.name}</option>`).join("");
     el.innerHTML=`
       <div class="page-header a1"><h1>Modify <span>Staff Members</span></h1><p>${isAdmin()?"Create and manage staff accounts for every service unit":"Create and manage staff accounts under your service unit"}</p></div>
-      <div class="two-col a2">
-        <div class="card">
-          <div class="card-head"><span class="card-title">Add Staff Member</span></div>
-          <div class="card-body">
-            <div id="staff-alert"></div>
-            <div class="form-group"><label class="label">Full Name <span class="req">*</span></label><input id="staff-name" class="input" placeholder="Staff full name"></div>
-            <div class="form-group"><label class="label">Email <span class="req">*</span></label><input id="staff-email" class="input" type="email" placeholder="staff@cdgi.edu.in"></div>
-            <div class="form-row">
-              <div class="form-group"><label class="label">Phone</label><input id="staff-phone" class="input" maxlength="10" placeholder="10-digit number" oninput="this.value=this.value.replace(/\\D/g,'').slice(0,10)"></div>
-              <div class="form-group"><label class="label">Department / Skill</label><input id="staff-dept" class="input" placeholder="Electrical, Plumbing, IT"></div>
+      <div class="staff-layout a2" id="staff-layout">
+        <div class="staff-left">
+          <div class="card" style="width:350px;">
+            <div class="card-head"><span class="card-title">Add Staff Member</span></div>
+            <div class="card-body">
+              <div id="staff-alert"></div>
+              <div class="form-group"><label class="label">Full Name <span class="req">*</span></label><input id="staff-name" class="input" placeholder="Staff full name"></div>
+              <div class="form-group"><label class="label">Email <span class="req">*</span></label><input id="staff-email" class="input" type="email" placeholder="staff@cdgi.edu.in"></div>
+              <div class="form-row">
+                <div class="form-group"><label class="label">Phone</label><input id="staff-phone" class="input" maxlength="10" placeholder="10-digit number" oninput="this.value=this.value.replace(/\\D/g,'').slice(0,10)"></div>
+                <div class="form-group"><label class="label">Department / Skill</label><input id="staff-dept" class="input" placeholder="Electrical, Plumbing, IT"></div>
+              </div>
+              ${isAdmin()?`<div class="form-group"><label class="label">Service Unit <span class="req">*</span></label><select id="staff-unit" class="select"><option value="">Select service unit</option>${unitOptions}</select></div>`:`<input id="staff-unit" type="hidden" value="${session.service_unit_id||""}">`}
+              <div class="form-group"><label class="label">Temporary Password <span class="req">*</span></label><input id="staff-pass" class="input" type="password" placeholder="Minimum 6 characters"></div>
+              <button class="btn btn-primary btn-full" onclick="createStaffMember()">Add Staff Member</button>
             </div>
-            ${isAdmin()?`<div class="form-group"><label class="label">Service Unit <span class="req">*</span></label><select id="staff-unit" class="select"><option value="">Select service unit</option>${unitOptions}</select></div>`:`<input id="staff-unit" type="hidden" value="${session.service_unit_id||""}">`}
-            <div class="form-group"><label class="label">Temporary Password <span class="req">*</span></label><input id="staff-pass" class="input" type="password" placeholder="Minimum 6 characters"></div>
-            <button class="btn btn-primary btn-full" onclick="createStaffMember()">Add Staff Member</button>
           </div>
         </div>
-        <div class="card">
-          <div class="card-head"><span class="card-title">Staff Summary</span></div>
-          <div class="card-body">
-            <div class="stats" style="grid-template-columns:repeat(3,1fr);gap:10px;">
-              <div class="stat s-blue"><div class="stat-val">${staff.length}</div><div class="stat-label">Total Staff</div></div>
-              <div class="stat s-yel"><div class="stat-val">${staff.reduce((sum,s)=>sum+(s.active_count||0),0)}</div><div class="stat-label">Active Issues</div></div>
-              <div class="stat s-green"><div class="stat-val">${units.length}</div><div class="stat-label">Service Units</div></div>
+        
+        <div class="staff-right">
+          <div class="card">
+            <div class="card-head">
+              <span class="card-title">Staff Summary</span>
+              <button id="add-staff-toggle-btn" class="slide-toggle-btn" onclick="toggleAddStaff()" title="Hide Add Staff Form">◀</button>
+            </div>
+            <div class="card-body">
+              <div class="principal-grid" style="grid-template-columns:repeat(3, 1fr); margin-bottom: 0;">
+                <!-- Total Staff (Polygon Area) -->
+                <div class="widget-card w-blue" style="min-height: 160px; box-shadow: none; border: 1px solid var(--border);">
+                  <div class="widget-head">
+                    <div class="widget-label">Total Staff</div>
+                    <div class="widget-sub">Workforce Size</div>
+                  </div>
+                  <div class="widget-val">${staff.length}</div>
+                  <div class="widget-wave">
+                    <svg class="wave-svg" viewBox="0 0 100 40" style="overflow:visible;">
+                      <polygon points="0,40 0,35 25,20 50,25 75,10 100,5 100,40" fill="var(--wg-s)" style="opacity:0.2"/>
+                      <polyline points="0,35 25,20 50,25 75,10 100,5" fill="none" stroke="var(--wg-s)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                  </div>
+                </div>
+
+                <!-- Active Issues (Half Gauge) -->
+                <div class="widget-card w-orange" style="min-height: 160px; box-shadow: none; border: 1px solid var(--border);">
+                  <div class="widget-head">
+                    <div class="widget-label">Active Issues</div>
+                    <div class="widget-sub">Current Workload</div>
+                  </div>
+                  <div style="display: flex; align-items: flex-end; justify-content: space-between;">
+                    <div class="widget-val">${staff.reduce((sum,s)=>sum+(s.active_count||0),0)}</div>
+                    <div class="widget-gauge" style="height:40px; width:80px; display:flex; align-items:flex-end;">
+                      <svg viewBox="0 0 100 50" style="width:100%; height:100%; overflow:visible;">
+                        <path d="M 10 50 A 40 40 0 0 1 90 50" fill="none" stroke="var(--surface3)" stroke-width="12" stroke-linecap="round"/>
+                        <path d="M 10 50 A 40 40 0 0 1 90 50" fill="none" stroke="var(--wg-s)" stroke-width="12" stroke-linecap="round" 
+                          stroke-dasharray="126" stroke-dashoffset="${126 - (126 * Math.min(1, staff.reduce((sum,s)=>sum+(s.active_count||0),0) / 20))}" style="transition: stroke-dashoffset 1s ease;"/>
+                      </svg>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Service Units (Horizontal Bars) -->
+                <div class="widget-card w-green" style="min-height: 160px; box-shadow: none; border: 1px solid var(--border);">
+                  <div class="widget-head">
+                    <div class="widget-label">Service Units</div>
+                    <div class="widget-sub">Departments</div>
+                  </div>
+                  <div class="widget-val">${units.length}</div>
+                  <div class="widget-chart" style="flex-direction: column; gap: 6px; justify-content: flex-end;">
+                    <div style="width: 100%; height: 6px; background: var(--surface3); border-radius: 4px; overflow: hidden;"><div style="height: 100%; width: 40%; background: var(--wg-s); border-radius: 4px;"></div></div>
+                    <div style="width: 100%; height: 6px; background: var(--surface3); border-radius: 4px; overflow: hidden;"><div style="height: 100%; width: 75%; background: var(--wg-s); border-radius: 4px;"></div></div>
+                    <div style="width: 100%; height: 6px; background: var(--surface3); border-radius: 4px; overflow: hidden;"><div style="height: 100%; width: 55%; background: var(--wg-s); border-radius: 4px;"></div></div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
       </div>
+      
       <div class="card a3" style="margin-top:16px;">
         <div class="card-head"><span class="card-title">Staff Details (${staff.length})</span></div>
         <div class="tbl-wrap"><table>
@@ -778,8 +1352,23 @@ async function renderStaffMembers(el){
   } catch(e){el.innerHTML=serverDownBanner();}
 }
 
+function toggleAddStaff() {
+  const layout = document.getElementById("staff-layout");
+  const btn = document.getElementById("add-staff-toggle-btn");
+  if (!layout) return;
+  layout.classList.toggle("collapsed");
+  if (layout.classList.contains("collapsed")) {
+    btn.innerHTML = "▶";
+    btn.title = "Show Add Staff Form";
+  } else {
+    btn.innerHTML = "◀";
+    btn.title = "Hide Add Staff Form";
+  }
+}
+
 function staffRow(s, unitOptions){
-  return `<tr>
+  const encodedStaff = encodeURIComponent(JSON.stringify(s));
+  return `<tr style="cursor:pointer;" data-staff="${encodedStaff}" onmousemove="showStaffTooltipData(event, this)" onmouseleave="hideTooltip()">
     <td><div class="flex-c gap-8"><div class="avatar" style="width:30px;height:30px;font-size:11px;flex-shrink:0;">${initials(s.name)}</div><span class="fw-7">${s.name}</span></div></td>
     <td class="text-sm text-2">${s.email}</td>
     <td class="text-sm">${s.phone||"—"}</td>
@@ -893,21 +1482,53 @@ async function renderProfile(el){
   try {
     const stats=await api("stats");
     el.innerHTML=`
-      <div class="page-header a1"><h1>My <span>Profile</span></h1></div>
-      <div class="two-col">
-        <div>
-          <div class="profile-hero a2">
-            <div class="avatar lg" style="margin:0 auto;">${initials(session.name)}</div>
-            <div class="profile-name">${session.name}</div>
-            <div class="profile-email">${session.email}</div>
-            <div style="margin-top:10px;display:flex;gap:8px;justify-content:center;">
-              <span class="badge b-${session.role}">${session.role}</span>
-              ${session.is_verified?'<span style="background:#dcfce7;color:#166534;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;border:1px solid #bbf7d0;">✅ Email Verified</span>':'<span style="background:#fef3c7;color:#92400e;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;">⚠️ Unverified</span>'}
+      <div class="page-header a1" style="display:flex; justify-content:space-between; align-items:center;">
+        <div><h1>My <span>Profile</span></h1></div>
+        <button class="btn btn-outline" id="edit-profile-btn" onclick="toggleEditProfile()" style="display:none; gap:6px; font-weight:600;"><span style="font-size:16px;">✏️</span> Edit Profile</button>
+      </div>
+      <div class="profile-layout" id="profile-layout">
+        <div class="profile-left">
+          <div class="profile-hero a2" style="background: #efeef5; border-radius: 24px; padding: 30px; position: relative; text-align: center; border: none; box-shadow: 0 10px 30px rgba(0,0,0,0.05);">
+            <!-- Settings Icon (Toggle Edit) -->
+            <button id="edit-profile-floating-btn" onclick="toggleEditProfile()" style="position: absolute; top: 20px; right: 20px; background: none; border: none; font-size: 20px; color: #7c3aed; cursor: pointer; padding: 4px; transition: transform 0.2s;">⚙️</button>
+            
+            <!-- Avatar -->
+            <div style="width: 110px; height: 110px; border-radius: 50%; overflow: hidden; margin: 0 auto 16px auto; box-shadow: 0 8px 20px rgba(0,0,0,0.15); border: 3px solid #fff; position: relative; cursor: pointer;" onclick="document.getElementById('profile-img-upload').click()">
+              ${session.profile_image 
+                 ? `<img src="${session.profile_image}" alt="Avatar" style="width: 100%; height: 100%; object-fit: cover;">`
+                 : `<div style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: var(--blue-gl); color: var(--blue); font-size: 40px; font-weight: 700;">${initials(session.name)}</div>`
+              }
+              <div style="position: absolute; bottom: 0; left: 0; right: 0; background: rgba(0,0,0,0.5); color: white; font-size: 10px; padding: 4px 0; text-align: center; text-transform: uppercase; font-weight: 700; opacity: 0; transition: opacity 0.2s;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0">Upload</div>
             </div>
-            <div class="profile-stats">
-              <div><div class="ps-val">${stats.total}</div><div class="ps-lbl">Submitted</div></div>
-              <div><div class="ps-val">${stats.resolved}</div><div class="ps-lbl">Resolved</div></div>
-              <div><div class="ps-val">${stats.in_progress}</div><div class="ps-lbl">Active</div></div>
+            <input type="file" id="profile-img-upload" style="display:none" accept="image/*" onchange="uploadProfileImage(event)">
+            
+            <!-- Name & Title -->
+            <h2 style="font-size: 22px; font-weight: 800; color: #1e293b; margin: 0 0 4px 0; letter-spacing: -0.5px;">${session.name}</h2>
+            <div style="font-size: 14px; color: #64748b; font-weight: 500; margin-bottom: 24px;">${session.email}</div>
+            
+            <!-- Badges -->
+            <div style="margin-bottom: 24px; display: flex; gap: 8px; justify-content: center;">
+              <span class="badge b-${session.role}" style="font-size: 11px;">${session.role.toUpperCase()}</span>
+              ${session.is_verified?'<span style="background:#dcfce7;color:#166534;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;">✅ Verified</span>':''}
+            </div>
+            
+            <!-- Stats as Social-like Buttons -->
+            <div style="display: flex; flex-direction: column; gap: 12px;">
+              <div class="stat-btn stat-btn-sub">
+                <span class="stat-btn-ico">📄</span>
+                <span class="stat-btn-lbl">Submitted Complaints</span>
+                <span class="stat-btn-val">${stats.total}</span>
+              </div>
+              <div class="stat-btn stat-btn-res">
+                <span class="stat-btn-ico">✅</span>
+                <span class="stat-btn-lbl">Resolved Issues</span>
+                <span class="stat-btn-val">${stats.resolved}</span>
+              </div>
+              <div class="stat-btn stat-btn-act">
+                <span class="stat-btn-ico">⏳</span>
+                <span class="stat-btn-lbl">Active & Pending</span>
+                <span class="stat-btn-val">${stats.in_progress}</span>
+              </div>
             </div>
           </div>
           <div class="card a3" style="margin-top:16px;">
@@ -916,22 +1537,29 @@ async function renderProfile(el){
             </div>
           </div>
         </div>
-        <div class="card a2">
-          <div class="card-head"><span class="card-title">✏️ Edit Profile</span></div>
-          <div class="card-body">
-            <div id="profile-alert"></div>
-            <div class="form-group"><label class="label">Full Name</label><input id="p-name" class="input" value="${session.name}"></div>
-            <div class="form-group"><label class="label">Email (cannot change)</label><input class="input" value="${session.email}" disabled style="opacity:.5;"></div>
-            <div class="form-group">
-              <label class="label">Phone (10 digits)</label>
-              <input id="p-phone" class="input" value="${session.phone||""}" placeholder="10-digit number" maxlength="10" oninput="this.value=this.value.replace(/\D/g,'').slice(0,10)">
-              <span class="field-err" id="profile-phone-err">Must be exactly 10 digits</span>
+        <div class="profile-right" id="profile-edit-panel">
+          <div class="card" style="height: 100%; display: flex; flex-direction: column;">
+            <div class="card-head" style="display:flex; justify-content:space-between; align-items:center;">
+              <span class="card-title">✏️ Edit Profile</span>
+              <button class="btn btn-ghost btn-sm" onclick="toggleEditProfile()" style="padding:4px 8px; font-size:16px;">✕</button>
             </div>
-            <div class="divider"></div>
-            <div class="form-group"><label class="label">New Password (leave blank to keep)</label>
-              <div class="pass-wrap"><input id="p-pass" class="input" type="password" placeholder="New password…"><button class="eye-btn" onclick="toggleEye('p-pass',this)" type="button">👁️</button></div>
+            <div class="card-body" style="flex: 1; display:flex; flex-direction:column;">
+              <div id="profile-alert"></div>
+              <div class="form-group"><label class="label">Full Name</label><input id="p-name" class="input" value="${session.name}"></div>
+              <div class="form-group"><label class="label">Email (cannot change)</label><input class="input" value="${session.email}" disabled style="opacity:.5;"></div>
+              <div class="form-group">
+                <label class="label">Phone (10 digits)</label>
+                <input id="p-phone" class="input" value="${session.phone||""}" placeholder="10-digit number" maxlength="10" oninput="this.value=this.value.replace(/\\D/g,'').slice(0,10)">
+                <span class="field-err" id="profile-phone-err">Must be exactly 10 digits</span>
+              </div>
+              <div class="divider"></div>
+              <div class="form-group"><label class="label">New Password (leave blank to keep)</label>
+                <div class="pass-wrap"><input id="p-pass" class="input" type="password" placeholder="New password…"><button class="eye-btn" onclick="toggleEye('p-pass',this)" type="button">👁️</button></div>
+              </div>
+              <div style="margin-top:auto; padding-top:20px;">
+                <button class="btn btn-primary btn-full" onclick="saveProfile()" style="padding:12px; font-size:15px; border-radius:10px;">💾 Save Changes</button>
+              </div>
             </div>
-            <button class="btn btn-primary" onclick="saveProfile()">💾 Save Changes</button>
           </div>
         </div>
       </div>`;
@@ -951,6 +1579,38 @@ async function saveProfile(){
     document.getElementById("profile-alert").innerHTML=`<div class="alert alert-ok"><span class="alert-ico">✅</span>Profile updated!</div>`;
     toast("Profile saved!","ok");
   } catch(e){toast(e.message,"err");}
+}
+
+function toggleEditProfile() {
+  const layout = document.getElementById("profile-layout");
+  const topBtn = document.getElementById("edit-profile-btn");
+  const floatBtn = document.getElementById("edit-profile-floating-btn");
+  
+  if (layout) {
+    layout.classList.toggle("editing");
+    const isEditing = layout.classList.contains("editing");
+    
+    if (topBtn) topBtn.style.display = isEditing ? "none" : "flex";
+    if (floatBtn) floatBtn.style.display = isEditing ? "none" : "inline-block";
+  }
+}
+
+async function uploadProfileImage(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  
+  const formData = new FormData();
+  formData.append("image", file);
+  
+  try {
+    const res = await api("profile/image", "POST", formData, true);
+    session = res.user;
+    localStorage.setItem("cirs_user", JSON.stringify(session));
+    toast("Profile image updated!", "ok");
+    go('profile'); // Re-render profile page
+  } catch(e) {
+    toast(e.message, "err");
+  }
 }
 
 /* ══ NOTIFICATIONS ══════════════════════════════════════════ */
