@@ -6,7 +6,9 @@
  * - Before/After photos
  * - Enhanced email notifications
  */
-const API = `${window.location.origin}/api`;
+const BACKEND = `http://localhost:5002`;
+const API = `${BACKEND}/api`;
+const imgUrl = (path) => (path && path.startsWith("/uploads/")) ? `${BACKEND}${path}` : (path || "");
 let token = localStorage.getItem("cirs_token") || null;
 let session = JSON.parse(localStorage.getItem("cirs_user") || "null");
 let section = "dashboard";
@@ -519,7 +521,7 @@ function renderApp() {
         <div class="sidebar-foot">
           <div class="user-card" onclick="go('profile')">
             <div class="avatar" style="overflow:hidden; display:flex; align-items:center; justify-content:center;">
-              ${session.profile_image ? `<img src="${session.profile_image}" style="width:100%;height:100%;object-fit:cover;">` : initials(session.name)}
+              ${session.profile_image ? `<img src="${imgUrl(session.profile_image)}" style="width:100%;height:100%;object-fit:cover;">` : initials(session.name)}
             </div>
             <div class="user-info"><div class="u-name">${session.name}</div><div class="u-role">${session.role} · ${session.dept}</div></div>
           </div>
@@ -547,7 +549,7 @@ function renderApp() {
               </div>
             </div>
             <div class="avatar" style="cursor:pointer; overflow:hidden; display:flex; align-items:center; justify-content:center;" onclick="go('profile')">
-              ${session.profile_image ? `<img src="${session.profile_image}" style="width:100%;height:100%;object-fit:cover;">` : initials(session.name)}
+              ${session.profile_image ? `<img src="${imgUrl(session.profile_image)}" style="width:100%;height:100%;object-fit:cover;">` : initials(session.name)}
             </div>
           </div>
         </header>
@@ -1495,7 +1497,7 @@ async function renderProfile(el) {
             <!-- Avatar -->
             <div style="width: 110px; height: 110px; border-radius: 50%; overflow: hidden; margin: 0 auto 16px auto; box-shadow: 0 8px 20px rgba(0,0,0,0.15); border: 3px solid #fff; position: relative; cursor: pointer;" onclick="document.getElementById('profile-img-upload').click()">
               ${session.profile_image
-        ? `<img src="${session.profile_image}" alt="Avatar" style="width: 100%; height: 100%; object-fit: cover;">`
+        ? `<img src="${imgUrl(session.profile_image)}" alt="Avatar" style="width: 100%; height: 100%; object-fit: cover;">`
         : `<div class="text-2xl fw-700" style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: var(--blue-gl); color: var(--blue);">${initials(session.name)}</div>`
       }
               <div class="text-xs fw-700" style="position: absolute; bottom: 0; left: 0; right: 0; background: rgba(0,0,0,0.5); color: white; padding: 4px 0; text-align: center; text-transform: uppercase; opacity: 0; transition: opacity 0.2s;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0">Upload</div>
