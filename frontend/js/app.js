@@ -6,7 +6,12 @@
  * - Before/After photos
  * - Enhanced email notifications
  */
-const API = `${window.location.origin}/api`;
+const API = (() => {
+  // In production (same origin), use relative path.
+  // In local dev (frontend on :3000, backend on :5002), point to backend directly.
+  if (window.location.port === "3000") return "http://localhost:5002/api";
+  return `${window.location.origin}/api`;
+})();
 let token   = localStorage.getItem("cirs_token") || null;
 let session = JSON.parse(localStorage.getItem("cirs_user") || "null");
 let section = "dashboard";
@@ -516,20 +521,12 @@ function renderApp(){
             <button class="nav-item" onclick="logout()"><span class="nav-icon">🚪</span> Sign Out</button>
           </div>`}
         </nav>
-        <div class="sidebar-foot">
-          <div class="user-card" onclick="go('profile')">
-            <div class="avatar" style="overflow:hidden; display:flex; align-items:center; justify-content:center;">
-              ${session.profile_image ? `<img src="${session.profile_image}" style="width:100%;height:100%;object-fit:cover;">` : initials(session.name)}
-            </div>
-            <div class="user-info"><div class="u-name">${session.name}</div><div class="u-role">${session.role} · ${session.dept}</div></div>
-          </div>
-        </div>
+
       </aside>
       <main class="main">
         <header class="topbar">
           <div class="topbar-l">
             <button class="menu-btn" onclick="toggleSidebar()">☰</button>
-            <div><div class="pg-title" id="pg-title">Dashboard</div><div class="pg-crumb">CDGI / <span id="pg-crumb">Campus Portal</span></div></div>
           </div>
           <div class="topbar-r">
             <div class="topbar-college-brand">
@@ -583,7 +580,7 @@ function go(s){
   section=s;
   document.querySelectorAll(".nav-item").forEach(el=>el.classList.toggle("active",el.dataset.s===s));
   const titles={dashboard:isStaff()?"Staff Dashboard":isManager()?"Manager Dashboard":isPrincipal()?"Principal Dashboard":isHOD()?"HOD Dashboard":"Dashboard",report:"Report Issue",complaints:complaintNavLabel(),unsolved:"Unsolved Problems",manage:"Manager Panel","staff-members":"Modify Staff Members",users:"Users",profile:"Profile"};
-  const pg=document.getElementById("pg-title"); if(pg) pg.textContent=titles[s]||s;
+
   const content=document.getElementById("page-content"); if(!content) return;
   content.innerHTML=`<div style="text-align:center;padding:60px;color:var(--text-3);">Loading…</div>`;
   closeSidebar();
