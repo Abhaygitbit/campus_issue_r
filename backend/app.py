@@ -578,6 +578,47 @@ def email_escalation(complaint, principal_name):
     <p>Please review this issue and take necessary action.</p>"""
     return tpl_base("linear-gradient(135deg,#dc2626,#991b1b)","Issue Escalated - 48 Hour Threshold",body)
 
+def email_status_update_manager(manager_name, ticket_id, title, old_status, new_status, staff_name):
+    status_colors = {"assigned": "#2563eb", "in-progress": "#f59e0b", "resolved": "#16a34a", "escalated": "#dc2626"}
+    color = status_colors.get(new_status, "#6b7280")
+    body = f"""<p>Dear <strong>{manager_name}</strong>,</p>
+    <p>There is a status update on an issue you assigned.</p>
+    <p><strong>Ticket:</strong> {ticket_id}<br>
+    <strong>Issue:</strong> {title}<br>
+    <strong>Assigned Staff:</strong> {staff_name}<br>
+    <strong>Previous Status:</strong> {old_status}<br>
+    <strong>New Status:</strong> <span style="color:{color};font-weight:bold;">{new_status.upper()}</span></p>
+    <p>Please log in to review the details.</p>"""
+    return tpl_base(f"linear-gradient(135deg,{color},rgba(0,0,0,0.1))", "Issue Status Updated", body)
+
+def email_status_update_staff(staff_name, ticket_id, title, new_status):
+    status_colors = {"assigned": "#2563eb", "in-progress": "#f59e0b", "resolved": "#16a34a", "escalated": "#dc2626"}
+    color = status_colors.get(new_status, "#6b7280")
+    body = f"""<p>Dear <strong>{staff_name}</strong>,</p>
+    <p>You have updated the status of an issue assigned to you.</p>
+    <p><strong>Ticket:</strong> {ticket_id}<br>
+    <strong>Issue:</strong> {title}<br>
+    <strong>New Status:</strong> <span style="color:{color};font-weight:bold;">{new_status.upper()}</span></p>
+    <p>Thank you for your work on this issue.</p>"""
+    return tpl_base(f"linear-gradient(135deg,{color},rgba(0,0,0,0.1))", "Issue Status Confirmed", body)
+
+def email_status_update_student(student_name, ticket_id, title, new_status):
+    status_messages = {
+        "in-progress": "Your issue is now being worked on.",
+        "resolved": "Your issue has been resolved!",
+        "escalated": "Your issue has been escalated for priority handling."
+    }
+    status_colors = {"assigned": "#2563eb", "in-progress": "#f59e0b", "resolved": "#16a34a", "escalated": "#dc2626"}
+    message = status_messages.get(new_status, f"Your issue status is now {new_status}.")
+    color = status_colors.get(new_status, "#6b7280")
+    body = f"""<p>Dear <strong>{student_name}</strong>,</p>
+    <p>{message}</p>
+    <p><strong>Ticket:</strong> {ticket_id}<br>
+    <strong>Issue:</strong> {title}<br>
+    <strong>Current Status:</strong> <span style="color:{color};font-weight:bold;">{new_status.upper()}</span></p>
+    <p>Thank you for reporting this issue.</p>"""
+    return tpl_base(f"linear-gradient(135deg,{color},rgba(0,0,0,0.1))", "Your Issue Status Updated", body)
+
 @app.route("/")
 def index(): return send_from_directory(app.static_folder, "index.html")
 
