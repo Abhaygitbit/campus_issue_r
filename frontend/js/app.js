@@ -45,9 +45,9 @@ function showTableTooltip(e, id, title, category, status, reporter, desc, date) 
       </div>
       <div class="tt-meta-item">
         <span class="tt-meta-lbl">Date:</span>
-        <span class="tt-meta-val" style="font-family: var(--mono); font-size: 11px;">${date || 'Recent'}</span>
+        <span class="tt-meta-val text-xs font-mono">${date || 'Recent'}</span>
       </div>
-      <div style="margin-top: 6px; padding-top: 6px; border-top: 1px dashed rgba(255,255,255,0.1); font-size: 11.5px; color: #94a3b8; line-height: 1.4;">
+      <div class="text-xs" style="margin-top: 6px; padding-top: 6px; border-top: 1px dashed rgba(255,255,255,0.1); color: #94a3b8; line-height: 1.4;">
         ${shortDesc}
       </div>
     </div>
@@ -80,7 +80,7 @@ function showStaffTooltipData(e, rowEl) {
   
   t.innerHTML = `
     <div class="tt-head">
-      <span class="tt-id" style="font-size: 13px;">${s.name}</span>
+      <span class="tt-id text-sm">${s.name}</span>
       <span class="tt-status">${s.active_count > 0 ? "Active Issues" : "Available"}</span>
     </div>
     <div class="tt-meta">
@@ -110,7 +110,7 @@ function showStaffTooltipData(e, rowEl) {
       </div>
       <div class="tt-meta-item">
         <span class="tt-meta-lbl">Joined:</span>
-        <span class="tt-meta-val" style="font-family: var(--mono); font-size: 11px;">${s.created_at || '—'}</span>
+        <span class="tt-meta-val text-xs font-mono">${s.created_at || '—'}</span>
       </div>
     </div>
   `;
@@ -238,7 +238,7 @@ async function showGraphDetail(type) {
                <path d="${type === 'resolved' ? getAreaPath(trends).replace(' Z', '').replace('M0 40 L', 'M') : getWavePath(trends)}" stroke-width="1.5" />
             </svg>
             <div style="display: flex; justify-content: space-between; margin-top: 20px; padding: 0 10px;">
-              ${last7Days.map(d => `<span style="font-size: 11px; font-weight: 600; color: var(--text-3);">${d}</span>`).join("")}
+              ${last7Days.map(d => `<span class="text-xs fw-600" style="color: var(--text-3);">${d}</span>`).join("")}
             </div>
           </div>
         ` : `
@@ -251,8 +251,8 @@ async function showGraphDetail(type) {
                 style="transition: stroke-dashoffset 1s ease; filter: drop-shadow(0 0 10px var(--wg-s));" />
             </svg>
             <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center;">
-              <div style="font-size: 48px; font-weight: 800;">${stats.in_progress}</div>
-              <div style="font-size: 12px; font-weight: 700; color: var(--text-3); text-transform: uppercase;">Active</div>
+              <div class="text-3xl fw-8">${stats.in_progress}</div>
+              <div class="text-sm fw-7" style="color: var(--text-3); text-transform: uppercase;">Active</div>
             </div>
           </div>
         `}
@@ -375,11 +375,11 @@ function loginForm(){
     </div>
     <button class="btn btn-primary btn-full btn-lg" id="login-btn" onclick="doLogin()">Login »</button>
     <div id="verify-section" style="display:none;margin-top:12px;text-align:center;background:#fef3c7;padding:12px;border-radius:8px;border:1px solid #fde68a;">
-      <p style="font-size:13px;color:#92400e;margin-bottom:8px;">Email not verified. Check inbox or resend:</p>
+      <p class="text-sm" style="color:#92400e;margin-bottom:8px;">Email not verified. Check inbox or resend:</p>
       <button class="btn btn-outline btn-sm" onclick="resendVerify()">📧 Resend Verification</button>
     </div>
-    <p style="text-align:center;margin-top:14px;font-size:13px;color:var(--text-2);">
-      New user? <a href="#" onclick="renderAuth('register')" style="color:var(--blue);font-weight:600;">SignUp (New User)</a>
+    <p class="text-sm text-2" style="text-align:center;margin-top:14px;">
+      New user? <a class="fw-6" href="#" onclick="renderAuth('register')" style="color:var(--blue);">SignUp (New User)</a>
     </p>`;
 }
 
@@ -407,11 +407,11 @@ function registerForm(){
       </div>
       <div class="form-group"><label class="label">Role</label>
         <select id="r-role" class="select"><option value="student">Student</option><option value="faculty">Faculty</option></select>
-        <div style="font-size:12px;color:var(--text-2);margin-top:6px;">Staff accounts are created by managers.</div>
+        <div class="text-sm text-2" style="margin-top:6px;">Staff accounts are created by managers.</div>
       </div>
     </div>
     <button class="btn btn-primary btn-full btn-lg" onclick="doRegister()">Create Account →</button>
-    <p style="text-align:center;margin-top:14px;font-size:13px;color:var(--text-2);">Already registered? <a href="#" onclick="renderAuth('login')" style="color:var(--blue);font-weight:600;">Sign in</a></p>`;
+    <p class="text-sm text-2" style="text-align:center;margin-top:14px;">Already registered? <a class="fw-6" href="#" onclick="renderAuth('login')" style="color:var(--blue);">Sign in</a></p>`;
 }
 
 async function doLogin(){
@@ -457,7 +457,7 @@ async function doRegister(){
   try {
     const d=await api("register","POST",{name,email,password:pass,phone,dept,role,roll_no:roll});
     if (d.status==="pending_verification") {
-      document.getElementById("auth-alert").innerHTML=`<div class="alert alert-info"><span class="alert-ico">📧</span><div><strong>Verification email sent</strong><br><span style="font-size:13px;">A verification link was sent to <strong>${email}</strong>. Click it to activate your account.</span></div></div>`;
+      document.getElementById("auth-alert").innerHTML=`<div class="alert alert-info"><span class="alert-ico">📧</span><div><strong>Verification email sent</strong><br><span class="text-sm">A verification link was sent to <strong>${email}</strong>. Click it to activate your account.</span></div></div>`;
     } else {
       saveSession(d); renderApp(); toast(`Welcome to CIRS, ${name}! 🎉`,"ok");
     }
@@ -750,7 +750,7 @@ async function renderDashboard(el){
       <div class="card a4">
         <div class="card-head"><span class="card-title">Recent Activity</span><button class="btn btn-outline btn-sm" onclick="go('${isPrincipal()?"unsolved":"complaints"}')">View All</button></div>
         <div class="tbl-wrap">
-          ${list.length?`<table style="font-size: 14.5px;">
+          ${list.length?`<table class="text-sm">
             <thead><tr><th>Ticket</th><th>Title</th><th>${canViewAll()?"Reporter":"Category"}</th><th>Status</th><th>Photos</th><th>Date</th><th></th></tr></thead>
             <tbody>
               ${list.map(c=>`<tr style="transition: background 0.2s; cursor: pointer;" 
@@ -759,16 +759,16 @@ async function renderDashboard(el){
                 onmouseleave="hideTooltip()"
                 onclick="viewTicket('${c.ticket_id}')"
               >
-                <td style="padding: 16px 12px;"><span class="mono" style="color:var(--blue);font-size:13px;font-weight:800;">${c.ticket_id}</span></td>
-                <td style="font-weight:600;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding: 16px 12px;">${c.title}</td>
-                <td style="padding: 16px 12px;">${canViewAll()?`<span style="font-size:13px;color:var(--text-2);font-weight:500;">${c.user_name}</span>`:`<span class="cpill c-${c.category}" style="font-size:12px;padding:4px 10px;">${c.category}</span>`}</td>
+                <td style="padding: 16px 12px;"><span class="mono text-sm fw-8" style="color:var(--blue);">${c.ticket_id}</span></td>
+                <td class="fw-600" style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding: 16px 12px;">${c.title}</td>
+                <td style="padding: 16px 12px;">${canViewAll()?`<span class="text-sm fw-5 text-2">${c.user_name}</span>`:`<span class="cpill c-${c.category} text-sm" style="padding:4px 10px;">${c.category}</span>`}</td>
                 <td style="padding: 16px 12px;">${statusBadge(c.status)}</td>
-                <td style="white-space:nowrap;padding: 16px 12px;">${c.image_before?'<span style="color:var(--blue);font-size:12px;font-weight:700;">Before</span>':"—"} ${c.image_after?'<span style="color:var(--green);font-size:12px;font-weight:700;">After</span>':""}</td>
-                <td style="font-size:13px;color:var(--text-2);padding: 16px 12px;">${c.created_at}</td>
+                <td style="white-space:nowrap;padding: 16px 12px;">${c.image_before?'<span class="text-sm fw-7" style="color:var(--blue);">Before</span>':"—"} ${c.image_after?'<span class="text-sm fw-7" style="color:var(--green);">After</span>':""}</td>
+                <td class="text-sm text-2" style="padding: 16px 12px;">${c.created_at}</td>
                 <td style="padding: 16px 12px;"><button class="btn btn-ghost btn-sm" onclick="event.stopPropagation(); viewTicket('${c.ticket_id}')">View →</button></td>
               </tr>`).join("")}
             </tbody>
-          </table>`:`<div class="tbl-empty"><div style="font-size:40px;margin-bottom:12px;">📭</div><div class="fw-7">No complaints yet</div>${canReport()?`<button class="btn btn-primary" onclick="go('report')" style="margin-top:14px;">Report an Issue</button>`:""}</div>`}
+          </table>`:`<div class="tbl-empty"><div class="text-2xl" style="margin-bottom:12px;">📭</div><div class="fw-7">No complaints yet</div>${canReport()?`<button class="btn btn-primary" onclick="go('report')" style="margin-top:14px;">Report an Issue</button>`:""}</div>`}
         </div>
       </div>`;
   } catch(e){el.innerHTML=serverDownBanner();}
@@ -777,7 +777,7 @@ async function renderDashboard(el){
 /* ══ REPORT FORM ════════════════════════════════════════════ */
 function renderReport(el){
   if(!canReport()){
-    el.innerHTML=`<div class="card" style="padding:36px;"><div class="fw-7" style="font-size:20px;color:var(--text-1);">Report Issue is available only for students and faculty.</div></div>`;
+    el.innerHTML=`<div class="card" style="padding:36px;"><div class="fw-7 text-lg">Report Issue is available only for students and faculty.</div></div>`;
     return;
   }
   el.innerHTML=`
@@ -820,19 +820,19 @@ function renderReport(el){
       <div class="card a3" style="width: 380px; flex-shrink: 0; position: sticky; top: 80px;">
         <div class="card-head"><span class="card-title">📧 Email Notification Flow</span></div>
         <div class="card-body">
-          <p style="font-size:13px;color:var(--text-2);margin-bottom:16px;">This system automatically sends updates to your registered email address at each stage of the resolution process.</p>
-          <div style="display:grid;gap:12px;font-size:13px;">
+          <p class="text-sm" style="color:var(--text-2);margin-bottom:16px;">This system automatically sends updates to your registered email address at each stage of the resolution process.</p>
+          <div class="text-sm" style="display:grid;gap:12px;">
             <div style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--surface2);border-radius:10px;border-left:4px solid var(--blue);">
-              <span style="font-size:20px;">1️⃣</span><div><strong>You submit complaint</strong><br><span style="color:var(--text-3);font-size:12px;">→ Auto email sent: "Complaint Routed"</span></div>
+              <span class="text-lg">1️⃣</span><div><strong>You submit complaint</strong><br><span class="text-sm" style="color:var(--text-3);">→ Auto email sent: "Complaint Routed"</span></div>
             </div>
             <div style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--surface2);border-radius:10px;border-left:4px solid var(--yellow);">
-              <span style="font-size:20px;">2️⃣</span><div><strong>Assigned to staff</strong><br><span style="color:var(--text-3);font-size:12px;">→ Auto email: "Issue Assigned to You"</span></div>
+              <span class="text-lg">2️⃣</span><div><strong>Assigned to staff</strong><br><span class="text-sm" style="color:var(--text-3);">→ Auto email: "Issue Assigned to You"</span></div>
             </div>
             <div style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--surface2);border-radius:10px;border-left:4px solid var(--orange);">
-              <span style="font-size:20px;">3️⃣</span><div><strong>Marked In Progress</strong><br><span style="color:var(--text-3);font-size:12px;">→ Auto email: "Status Update"</span></div>
+              <span class="text-lg">3️⃣</span><div><strong>Marked In Progress</strong><br><span class="text-sm" style="color:var(--text-3);">→ Auto email: "Status Update"</span></div>
             </div>
             <div style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--surface2);border-radius:10px;border-left:4px solid var(--green);">
-              <span style="font-size:20px;">4️⃣</span><div><strong>Issue Resolved</strong><br><span style="color:var(--text-3);font-size:12px;">→ Auto email: "Issue Resolved" + After photo</span></div>
+              <span class="text-lg">4️⃣</span><div><strong>Issue Resolved</strong><br><span class="text-sm" style="color:var(--text-3);">→ Auto email: "Issue Resolved" + After photo</span></div>
             </div>
           </div>
         </div>
@@ -861,7 +861,7 @@ function previewFile(file){
   const el=document.getElementById("file-preview"); if(!el) return;
   const isImg=file.type.startsWith("image/");
   let preview=isImg?`<img src="${URL.createObjectURL(file)}" style="max-width:100%;max-height:200px;border-radius:8px;border:2px solid var(--border);margin-top:8px;display:block;">`:"";
-  el.innerHTML=`<div class="file-preview"><span>📎</span><span class="file-preview-name">${file.name}</span><span class="file-preview-size">${(file.size/1024).toFixed(1)} KB</span><button onclick="clearFile()" style="background:none;border:none;color:var(--text-3);font-size:20px;cursor:pointer;margin-left:auto;">×</button></div>${preview}`;
+  el.innerHTML=`<div class="file-preview"><span>📎</span><span class="file-preview-name">${file.name}</span><span class="file-preview-size">${(file.size/1024).toFixed(1)} KB</span><button class="text-lg" onclick="clearFile()" style="background:none;border:none;color:var(--text-3);cursor:pointer;margin-left:auto;">×</button></div>${preview}`;
   window._selectedFile=file;
 }
 function clearFile(){document.getElementById("file-preview").innerHTML="";document.getElementById("r-file").value="";window._selectedFile=null;}
@@ -910,7 +910,7 @@ async function renderComplaints(el){
         <div class="input-icon" style="width:220px;"><span class="ico">🔍</span><input class="input" placeholder="Search…" id="search-inp" oninput="searchTickets(this.value)"></div>
       </div>
       <div id="ticket-grid" class="tickets-grid a3">
-        ${list.length?list.map(c=>ticketCard(c)).join(""):`<div class="card" style="padding:60px;text-align:center;"><div style="font-size:48px;margin-bottom:14px;">📭</div><div class="fw-7" style="font-size:19px;">No Complaints Yet</div>${canReport()?`<button class="btn btn-primary" onclick="go('report')" style="margin-top:16px;">Report an Issue</button>`:""}</div>`}
+        ${list.length?list.map(c=>ticketCard(c)).join(""):`<div class="card" style="padding:60px;text-align:center;"><div class="text-3xl" style="margin-bottom:14px;">📭</div><div class="fw-7 text-lg">No Complaints Yet</div>${canReport()?`<button class="btn btn-primary" onclick="go('report')" style="margin-top:16px;">Report an Issue</button>`:""}</div>`}
       </div>`;
   } catch(e){el.innerHTML=serverDownBanner();}
 }
@@ -925,8 +925,8 @@ function ticketCard(c){
       ${canViewAll()&&c.user_name?`<span>👤 ${c.user_name}</span>`:""}
       ${c.service_unit_name?`<span>🏢 ${c.service_unit_name}</span>`:""}
       ${isHOD()&&c.reporter_academic_department?`<span>🎓 ${c.reporter_academic_department}</span>`:""}
-      ${c.image_before?`<span style="color:var(--blue);font-size:11px;font-weight:700;">📸 Before</span>`:""}
-      ${c.image_after?`<span style="color:var(--green);font-size:11px;font-weight:700;">📸 After</span>`:""}
+      ${c.image_before?`<span class="text-xs fw-700" style="color:var(--blue);">📸 Before</span>`:""}
+      ${c.image_after?`<span class="text-xs fw-700" style="color:var(--green);">📸 After</span>`:""}
     </div>
     <div class="tkt-foot"><span class="tkt-desc">${c.description.slice(0,80)}${c.description.length>80?"...":""}</span><button class="btn btn-outline btn-sm" onclick="event.stopPropagation();viewTicket('${c.ticket_id}')">Details →</button></div>
   </div>`;
@@ -949,7 +949,7 @@ async function renderUnsolved(el){
               <div class="unsolved-card-header">
                 <div class="unsolved-id">${c.ticket_id}</div>
                 <div class="unsolved-time">
-                  <span style="font-size:14px;">🚨</span> ESCALATED
+                  <span class="text-sm">🚨</span> ESCALATED
                 </div>
               </div>
               
@@ -979,8 +979,8 @@ async function renderUnsolved(el){
         </div>
       ` : `
         <div class="card a2" style="padding:60px; text-align:center;">
-          <div style="font-size:50px; margin-bottom:20px;">✅</div>
-          <div class="fw-7" style="font-size:22px; color:var(--text-1);">All systems normal!</div>
+          <div class="text-3xl" style="margin-bottom:20px;">✅</div>
+          <div class="fw-7 text-xl" style="color:var(--text-1);">All systems normal!</div>
           <p class="text-3" style="margin-top:10px;">There are no unsolved problems requiring your immediate attention.</p>
         </div>
       `}
@@ -1008,14 +1008,14 @@ async function viewTicket(ticketId){
         html += `<div style="margin-bottom:16px;"><div class="label" style="margin-bottom:8px;color:var(--green);">✅ Staff Resolution Photos</div><div class="image-grid">${resolutionImages.map(img=>`<img src="${img.image_url}" class="evidence-img evidence-thumb" style="border-color:#bbf7d0;" onclick="window.open('${img.image_url}','_blank')">`).join('')}</div></div>`;
       }
       if(isStaff() && c.assigned_staff_id===session?.id && c.status!=="resolved"){
-        html += `<div style="margin-bottom:16px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:var(--r);padding:14px;"><div class="label" style="margin-bottom:8px;color:var(--green);">Upload Fixed-Work Photos</div><p style="font-size:13px;color:var(--text-2);margin-bottom:10px;">Upload one or more proof images. This will mark the issue as resolved.</p><div class="file-zone" id="after-zone" onclick="document.getElementById('after-file').click()" style="padding:16px;"><div class="file-zone-ico" style="font-size:22px;">📷</div><div class="file-zone-txt" style="font-size:12px;"><strong>Click to upload</strong> fixed-work photos</div></div><input type="file" id="after-file" style="display:none" accept="image/*" multiple onchange="handleAfterFile(event,'${c.ticket_id}')"><div id="after-preview"></div><button class="btn btn-success btn-sm" id="upload-after-btn" style="display:none;margin-top:8px;width:100%;" onclick="uploadAfterPhoto('${c.ticket_id}')">Upload & Mark Resolved</button></div>`;
+        html += `<div style="margin-bottom:16px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:var(--r);padding:14px;"><div class="label" style="margin-bottom:8px;color:var(--green);">Upload Fixed-Work Photos</div><p class="text-sm" style="color:var(--text-2);margin-bottom:10px;">Upload one or more proof images. This will mark the issue as resolved.</p><div class="file-zone" id="after-zone" onclick="document.getElementById('after-file').click()" style="padding:16px;"><div class="file-zone-ico text-xl">📷</div><div class="file-zone-txt text-sm"><strong>Click to upload</strong> fixed-work photos</div></div><input type="file" id="after-file" style="display:none" accept="image/*" multiple onchange="handleAfterFile(event,'${c.ticket_id}')"><div id="after-preview"></div><button class="btn btn-success btn-sm" id="upload-after-btn" style="display:none;margin-top:8px;width:100%;" onclick="uploadAfterPhoto('${c.ticket_id}')">Upload & Mark Resolved</button></div>`;
       }
       return html;
     };
 
     openModal(`
       <div class="modal-head">
-        <div><div class="mono" style="font-size:11px;color:var(--blue);margin-bottom:4px;font-weight:700;">${c.ticket_id}</div><div class="modal-title">${c.title}</div></div>
+        <div><div class="mono text-xs fw-700" style="color:var(--blue);margin-bottom:4px;">${c.ticket_id}</div><div class="modal-title">${c.title}</div></div>
         <button class="modal-close" onclick="closeModal()">×</button>
       </div>
       <div class="modal-body">
@@ -1023,16 +1023,16 @@ async function viewTicket(ticketId){
         <div class="tracker" style="margin-bottom:20px;">
           ${["Routed","Assigned","In Progress","Resolved"].map((l,i)=>`<div class="t-step ${i<si+1?"done":i===si+1?"active":""}"><div class="t-dot">${i<si+1?"✓":i+1}</div><div class="t-label">${l}</div></div>`).join("")}
         </div>
-        ${canViewAll()?`<div class="reporter-card"><div class="reporter-card-title">Reporter Information</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:13px;"><div><span class="text-3">Name: </span><strong>${c.user_name||"—"}</strong></div><div><span class="text-3">Email: </span><strong>${c.user_email||"—"}</strong></div><div><span class="text-3">Academic Department: </span><strong>${c.reporter_academic_department||c.user_dept||"—"}</strong></div><div><span class="text-3">Roll No: </span><strong>${c.user_roll||"—"}</strong></div><div><span class="text-3">Phone: </span><strong>${c.user_phone||"—"}</strong></div><div><span class="text-3">Submitted: </span><strong>${c.created_at}</strong></div></div></div>`:""}
+        ${canViewAll()?`<div class="reporter-card"><div class="reporter-card-title">Reporter Information</div><div class="text-sm" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;"><div><span class="text-3">Name: </span><strong>${c.user_name||"—"}</strong></div><div><span class="text-3">Email: </span><strong>${c.user_email||"—"}</strong></div><div><span class="text-3">Academic Department: </span><strong>${c.reporter_academic_department||c.user_dept||"—"}</strong></div><div><span class="text-3">Roll No: </span><strong>${c.user_roll||"—"}</strong></div><div><span class="text-3">Phone: </span><strong>${c.user_phone||"—"}</strong></div><div><span class="text-3">Submitted: </span><strong>${c.created_at}</strong></div></div></div>`:""}
         ${c.can_view_student_photo&&c.image_before?`<div class="reporter-card"><div class="reporter-card-title">📷 Student Complaint Photo</div><div style="margin-top:10px;"><img src="${c.image_before}" alt="Complaint photo" style="width:100%;max-height:420px;object-fit:cover;border-radius:14px;border:1px solid var(--line);box-shadow:var(--shadow-sm);"></div></div>`:""}
         <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--r-sm);padding:14px;margin-bottom:14px;">
           <div class="label" style="margin-bottom:6px;">Description</div>
-          <p style="font-size:14px;line-height:1.75;">${c.description}</p>
+          <p class="text-sm" style="line-height:1.75;">${c.description}</p>
         </div>
-        ${c.location?`<div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--r-sm);padding:11px;margin-bottom:14px;font-size:14px;"><span class="text-3">📍 Location: </span><strong>${c.location}</strong></div>`:""}
+        ${c.location?`<div class="text-sm" style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--r-sm);padding:11px;margin-bottom:14px;"><span class="text-3">📍 Location: </span><strong>${c.location}</strong></div>`:""}
         ${photoSection()}
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;">
-          ${[["Service Unit",c.service_unit_name||c.dept||"—"],["Assigned Manager",c.assigned_manager_name||"—"],["Assigned Staff",c.assigned_staff_name||"Pending"],["Resolved By",c.resolved_by||"—"],["Academic Department",c.reporter_academic_department||c.user_dept||"—"],["Last Updated",c.updated_at||c.created_at]].map(([k,v])=>`<div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--r-sm);padding:11px;"><div class="label" style="font-size:10px;margin-bottom:3px;">${k}</div><div class="fw-7" style="font-size:13.5px;">${v}</div></div>`).join("")}
+          ${[["Service Unit",c.service_unit_name||c.dept||"—"],["Assigned Manager",c.assigned_manager_name||"—"],["Assigned Staff",c.assigned_staff_name||"Pending"],["Resolved By",c.resolved_by||"—"],["Academic Department",c.reporter_academic_department||c.user_dept||"—"],["Last Updated",c.updated_at||c.created_at]].map(([k,v])=>`<div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--r-sm);padding:11px;"><div class="label text-xs" style="margin-bottom:3px;">${k}</div><div class="fw-7 text-sm">${v}</div></div>`).join("")}
         </div>
         ${canAssign()&&c.status!=="resolved"?`
         <div class="divider"></div>
@@ -1051,7 +1051,7 @@ async function viewTicket(ticketId){
         ${c.status==="resolved"&&c.user_id===session?.id&&!c.feedback?`
         <div class="divider"></div><div class="label">⭐ Rate Resolution Quality</div>
         <div style="display:flex;gap:7px;margin-top:10px;flex-wrap:wrap;">
-          ${[1,2,3,4,5].map(i=>`<button class="btn btn-outline btn-sm" onclick="submitFeedback('${c.ticket_id}',${i})" style="font-size:20px;padding:8px 14px;">${"⭐".repeat(i)}</button>`).join("")}
+          ${[1,2,3,4,5].map(i=>`<button class="btn btn-outline btn-sm text-lg" onclick="submitFeedback('${c.ticket_id}',${i})" style="padding:8px 14px;">${"⭐".repeat(i)}</button>`).join("")}
         </div>`:""}
         ${c.feedback?`<div class="alert alert-ok" style="margin-top:12px;"><span class="alert-ico">⭐</span>Feedback: ${c.feedback}/5 — Thank you!</div>`:""}
       </div>`);
@@ -1124,7 +1124,7 @@ async function submitFeedback(tid,rating){
 /* ══ MANAGE PANEL ══════════════════════════════════════════ */
 async function renderManage(el){
   if(!canManage()){
-    el.innerHTML=`<div class="card" style="padding:36px;"><div class="fw-7" style="font-size:20px;color:var(--text-1);">Manager Panel is available only for service unit managers.</div></div>`;
+    el.innerHTML=`<div class="card" style="padding:36px;"><div class="fw-7 text-lg">Manager Panel is available only for service unit managers.</div></div>`;
     return;
   }
   try {
@@ -1217,8 +1217,8 @@ async function renderManage(el){
       <div class="card a3">
         <div class="card-head"><span class="card-title">Service Unit Issues (${list.length})</span>
           <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-            <select class="select" style="padding:7px 10px;font-size:13px;width:auto;" onchange="filterTable(this.value)"><option value="all">All Status</option><option value="routed">Routed</option><option value="assigned">Assigned</option><option value="in-progress">In Progress</option><option value="resolved">Resolved</option></select>
-            <div class="input-icon" style="width:180px;"><span class="ico">🔍</span><input class="input" style="padding:7px 12px 7px 36px;font-size:13px;" placeholder="Search…" oninput="filterTableSearch(this.value)"></div>
+            <select class="select text-sm" style="padding:7px 10px;width:auto;" onchange="filterTable(this.value)"><option value="all">All Status</option><option value="routed">Routed</option><option value="assigned">Assigned</option><option value="in-progress">In Progress</option><option value="resolved">Resolved</option></select>
+            <div class="input-icon" style="width:180px;"><span class="ico">🔍</span><input class="input text-sm" style="padding:7px 12px 7px 36px;" placeholder="Search…" oninput="filterTableSearch(this.value)"></div>
           </div>
         </div>
         <div class="tbl-wrap">
@@ -1227,13 +1227,13 @@ async function renderManage(el){
             <tbody>
               ${list.length?list.map(c=>`
                 <tr data-status="${c.status}" data-title="${(c.title||"").toLowerCase()}">
-                  <td><span class="mono" style="color:var(--blue);font-size:12px;font-weight:700;">${c.ticket_id}</span></td>
-                  <td style="font-weight:600;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${c.title}">${c.title}</td>
+                  <td><span class="mono text-sm fw-700" style="color:var(--blue);">${c.ticket_id}</span></td>
+                  <td class="fw-600" style="max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${c.title}">${c.title}</td>
                   <td class="text-sm text-2">${c.user_name}</td>
                   <td><span class="cpill c-${c.category}">${c.category}</span></td>
                   <td>${statusBadge(c.status)}</td>
-                  <td>${c.image_before?`<a href="${c.image_before}" target="_blank" class="btn btn-outline btn-sm" style="font-size:11px;padding:4px 8px;">📸 View</a>`:`<span class="text-3 text-xs">—</span>`}</td>
-                  <td>${c.image_after?`<a href="${c.image_after}" target="_blank" class="btn btn-success btn-sm" style="font-size:11px;padding:4px 8px;">✅ View</a>`:`<span class="text-3 text-xs">—</span>`}</td>
+                  <td>${c.image_before?`<a href="${c.image_before}" target="_blank" class="btn btn-outline btn-sm text-xs" style="padding:4px 8px;">📸 View</a>`:`<span class="text-3 text-xs">—</span>`}</td>
+                  <td>${c.image_after?`<a href="${c.image_after}" target="_blank" class="btn btn-success btn-sm text-xs" style="padding:4px 8px;">✅ View</a>`:`<span class="text-3 text-xs">—</span>`}</td>
                   <td class="text-sm text-2">${c.created_at}</td>
                   <td><div style="display:flex;gap:4px;">
                     <button class="btn btn-ghost btn-sm" onclick="viewTicket('${c.ticket_id}')">View</button>
@@ -1253,7 +1253,7 @@ function filterTableSearch(q){document.querySelectorAll("#admin-tbl tbody tr[dat
 /* == STAFF MEMBERS ========================================= */
 async function renderStaffMembers(el){
   if(!canModifyStaff()){
-    el.innerHTML=`<div class="card" style="padding:36px;"><div class="fw-7" style="font-size:20px;color:var(--text-1);">Staff management is available only for managers and admin.</div></div>`;
+    el.innerHTML=`<div class="card" style="padding:36px;"><div class="fw-7 text-lg">Staff management is available only for managers and admin.</div></div>`;
     return;
   }
   try {
@@ -1369,7 +1369,7 @@ function toggleAddStaff() {
 function staffRow(s, unitOptions){
   const encodedStaff = encodeURIComponent(JSON.stringify(s));
   return `<tr style="cursor:pointer;" data-staff="${encodedStaff}" onmousemove="showStaffTooltipData(event, this)" onmouseleave="hideTooltip()">
-    <td><div class="flex-c gap-8"><div class="avatar" style="width:30px;height:30px;font-size:11px;flex-shrink:0;">${initials(s.name)}</div><span class="fw-7">${s.name}</span></div></td>
+    <td><div class="flex-c gap-8"><div class="avatar text-xs" style="width:30px;height:30px;flex-shrink:0;">${initials(s.name)}</div><span class="fw-7">${s.name}</span></div></td>
     <td class="text-sm text-2">${s.email}</td>
     <td class="text-sm">${s.phone||"—"}</td>
     <td class="text-sm">${s.dept||"—"}</td>
@@ -1454,14 +1454,14 @@ async function renderUsers(el){
         <div class="tbl-wrap"><table>
           <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Dept</th><th>Verified</th><th>Joined</th><th>Actions</th></tr></thead>
           <tbody>${list.map(u=>`<tr>
-            <td><div class="flex-c gap-8"><div class="avatar" style="width:30px;height:30px;font-size:11px;flex-shrink:0;">${initials(u.name)}</div><span class="fw-7">${u.name}</span></div></td>
+            <td><div class="flex-c gap-8"><div class="avatar text-xs" style="width:30px;height:30px;flex-shrink:0;">${initials(u.name)}</div><span class="fw-7">${u.name}</span></div></td>
             <td class="text-sm text-2">${u.email}</td>
             <td><span class="badge b-${u.role}">${u.role}</span></td>
             <td class="text-sm">${u.dept||"—"}</td>
-            <td>${u.is_verified?'<span style="color:var(--green);font-size:13px;font-weight:700;">✅ Yes</span>':'<span style="color:var(--yellow);font-size:12px;">⚠️ Pending</span>'}</td>
+            <td>${u.is_verified?'<span class="text-sm fw-700" style="color:var(--green);">✅ Yes</span>':'<span class="text-sm" style="color:var(--yellow);">⚠️ Pending</span>'}</td>
             <td class="text-sm text-2">${u.created_at}</td>
             <td><div style="display:flex;gap:6px;align-items:center;">
-              ${isAdmin()?`<select class="select" style="padding:5px 8px;font-size:12px;width:auto;" onchange="changeRole(${u.id},this.value)"><option ${u.role==="student"?"selected":""} value="student">student</option><option ${u.role==="faculty"?"selected":""} value="faculty">faculty</option><option ${u.role==="staff"?"selected":""} value="staff">staff</option><option ${u.role==="coordinator"?"selected":""} value="coordinator">coordinator</option><option ${u.role==="admin"?"selected":""} value="admin">admin</option></select><button class="btn btn-danger btn-sm" onclick="deleteUser(${u.id},'${u.name}')" title="Delete" style="padding:5px 10px;">🗑</button>`:`<span class="text-xs text-2">${u.role}</span>`}
+              ${isAdmin()?`<select class="select text-sm" style="padding:5px 8px;width:auto;" onchange="changeRole(${u.id},this.value)"><option ${u.role==="student"?"selected":""} value="student">student</option><option ${u.role==="faculty"?"selected":""} value="faculty">faculty</option><option ${u.role==="staff"?"selected":""} value="staff">staff</option><option ${u.role==="coordinator"?"selected":""} value="coordinator">coordinator</option><option ${u.role==="admin"?"selected":""} value="admin">admin</option></select><button class="btn btn-danger btn-sm" onclick="deleteUser(${u.id},'${u.name}')" title="Delete" style="padding:5px 10px;">🗑</button>`:`<span class="text-xs text-2">${u.role}</span>`}
             </div></td>
           </tr>`).join("")}</tbody>
         </table></div>
@@ -1484,32 +1484,32 @@ async function renderProfile(el){
     el.innerHTML=`
       <div class="page-header a1" style="display:flex; justify-content:space-between; align-items:center;">
         <div><h1>My <span>Profile</span></h1></div>
-        <button class="btn btn-outline" id="edit-profile-btn" onclick="toggleEditProfile()" style="display:none; gap:6px; font-weight:600;"><span style="font-size:16px;">✏️</span> Edit Profile</button>
+        <button class="btn btn-outline fw-600" id="edit-profile-btn" onclick="toggleEditProfile()" style="display:none; gap:6px;"><span class="text-base">✏️</span> Edit Profile</button>
       </div>
       <div class="profile-layout" id="profile-layout">
         <div class="profile-left">
           <div class="profile-hero a2" style="background: #efeef5; border-radius: 24px; padding: 30px; position: relative; text-align: center; border: none; box-shadow: 0 10px 30px rgba(0,0,0,0.05);">
             <!-- Settings Icon (Toggle Edit) -->
-            <button id="edit-profile-floating-btn" onclick="toggleEditProfile()" style="position: absolute; top: 20px; right: 20px; background: none; border: none; font-size: 20px; color: #7c3aed; cursor: pointer; padding: 4px; transition: transform 0.2s;">⚙️</button>
+            <button class="text-lg" id="edit-profile-floating-btn" onclick="toggleEditProfile()" style="position: absolute; top: 20px; right: 20px; background: none; border: none; color: #7c3aed; cursor: pointer; padding: 4px; transition: transform 0.2s;">⚙️</button>
             
             <!-- Avatar -->
             <div style="width: 110px; height: 110px; border-radius: 50%; overflow: hidden; margin: 0 auto 16px auto; box-shadow: 0 8px 20px rgba(0,0,0,0.15); border: 3px solid #fff; position: relative; cursor: pointer;" onclick="document.getElementById('profile-img-upload').click()">
               ${session.profile_image 
                  ? `<img src="${session.profile_image}" alt="Avatar" style="width: 100%; height: 100%; object-fit: cover;">`
-                 : `<div style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: var(--blue-gl); color: var(--blue); font-size: 40px; font-weight: 700;">${initials(session.name)}</div>`
+                 : `<div class="text-2xl fw-700" style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: var(--blue-gl); color: var(--blue);">${initials(session.name)}</div>`
               }
-              <div style="position: absolute; bottom: 0; left: 0; right: 0; background: rgba(0,0,0,0.5); color: white; font-size: 10px; padding: 4px 0; text-align: center; text-transform: uppercase; font-weight: 700; opacity: 0; transition: opacity 0.2s;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0">Upload</div>
+              <div class="text-xs fw-700" style="position: absolute; bottom: 0; left: 0; right: 0; background: rgba(0,0,0,0.5); color: white; padding: 4px 0; text-align: center; text-transform: uppercase; opacity: 0; transition: opacity 0.2s;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0">Upload</div>
             </div>
             <input type="file" id="profile-img-upload" style="display:none" accept="image/*" onchange="uploadProfileImage(event)">
             
             <!-- Name & Title -->
-            <h2 style="font-size: 22px; font-weight: 800; color: #1e293b; margin: 0 0 4px 0; letter-spacing: -0.5px;">${session.name}</h2>
-            <div style="font-size: 14px; color: #64748b; font-weight: 500; margin-bottom: 24px;">${session.email}</div>
+            <h2 class="text-xl fw-800" style="color: #1e293b; margin: 0 0 4px 0; letter-spacing: -0.5px;">${session.name}</h2>
+            <div class="text-sm fw-500" style="color: #64748b; margin-bottom: 24px;">${session.email}</div>
             
             <!-- Badges -->
             <div style="margin-bottom: 24px; display: flex; gap: 8px; justify-content: center;">
-              <span class="badge b-${session.role}" style="font-size: 11px;">${session.role.toUpperCase()}</span>
-              ${session.is_verified?'<span style="background:#dcfce7;color:#166534;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;">✅ Verified</span>':''}
+              <span class="badge b-${session.role} text-xs">${session.role.toUpperCase()}</span>
+              ${session.is_verified?'<span class="text-xs fw-700" style="background:#dcfce7;color:#166534;padding:3px 10px;border-radius:20px;">✅ Verified</span>':''}
             </div>
             
             <!-- Stats as Social-like Buttons -->
@@ -1533,7 +1533,7 @@ async function renderProfile(el){
           </div>
           <div class="card a3" style="margin-top:16px;">
             <div class="card-body">
-              ${[["🎓 Department",session.dept],["📋 Roll Number",session.roll_no||"—"],["📱 Phone",session.phone||"—"],["🏫 Institution","CDGI, Indore"]].map(([k,v])=>`<div class="flex-bc" style="padding:10px;background:var(--surface2);border-radius:var(--r-sm);margin-bottom:8px;font-size:14px;"><span class="text-2">${k}</span><span class="fw-7">${v}</span></div>`).join("")}
+              ${[["🎓 Department",session.dept],["📋 Roll Number",session.roll_no||"—"],["📱 Phone",session.phone||"—"],["🏫 Institution","CDGI, Indore"]].map(([k,v])=>`<div class="flex-bc text-sm" style="padding:10px;background:var(--surface2);border-radius:var(--r-sm);margin-bottom:8px;"><span class="text-2">${k}</span><span class="fw-7">${v}</span></div>`).join("")}
             </div>
           </div>
         </div>
@@ -1541,7 +1541,7 @@ async function renderProfile(el){
           <div class="card" style="height: 100%; display: flex; flex-direction: column;">
             <div class="card-head" style="display:flex; justify-content:space-between; align-items:center;">
               <span class="card-title">✏️ Edit Profile</span>
-              <button class="btn btn-ghost btn-sm" onclick="toggleEditProfile()" style="padding:4px 8px; font-size:16px;">✕</button>
+              <button class="btn btn-ghost btn-sm text-base" onclick="toggleEditProfile()" style="padding:4px 8px;">✕</button>
             </div>
             <div class="card-body" style="flex: 1; display:flex; flex-direction:column;">
               <div id="profile-alert"></div>
@@ -1557,7 +1557,7 @@ async function renderProfile(el){
                 <div class="pass-wrap"><input id="p-pass" class="input" type="password" placeholder="New password…"><button class="eye-btn" onclick="toggleEye('p-pass',this)" type="button">👁️</button></div>
               </div>
               <div style="margin-top:auto; padding-top:20px;">
-                <button class="btn btn-primary btn-full" onclick="saveProfile()" style="padding:12px; font-size:15px; border-radius:10px;">💾 Save Changes</button>
+                <button class="btn btn-primary btn-full text-base" onclick="saveProfile()" style="padding:12px; border-radius:10px;">💾 Save Changes</button>
               </div>
             </div>
           </div>
@@ -1634,7 +1634,7 @@ function closeModal(){document.getElementById("overlay")?.classList.remove("show
 
 /* ══ HELPERS ════════════════════════════════════════════════ */
 function statusBadge(s){const m={"routed":"b-routed",assigned:"b-admin","in-progress":"b-progress",resolved:"b-resolved","escalated":"b-escalated",closed:"b-closed"};const l={"routed":"Routed","assigned":"Assigned","in-progress":"In Progress","resolved":"Resolved","escalated":"Escalated","closed":"Closed"};return `<span class="badge ${m[s]||"b-new"}">${l[s]||s}</span>`;}
-function serverDownBanner(){return `<div class="card" style="padding:52px;text-align:center;"><div style="font-size:52px;margin-bottom:16px;">⚠️</div><div class="fw-7" style="font-size:21px;">Server Not Running</div><p class="text-2" style="margin-top:10px;font-size:14px;">Run: <code style="background:var(--bg2);padding:2px 8px;border-radius:4px;">cd backend && python app.py</code></p></div>`;}
+function serverDownBanner(){return `<div class="card" style="padding:52px;text-align:center;"><div class="text-3xl" style="margin-bottom:16px;">⚠️</div><div class="fw-7 text-xl">Server Not Running</div><p class="text-2 text-sm" style="margin-top:10px;">Run: <code style="background:var(--bg2);padding:2px 8px;border-radius:4px;">cd backend && python app.py</code></p></div>`;}
 
 window.addEventListener("DOMContentLoaded",()=>{
   setTimeout(()=>{const loader=document.getElementById("loader");if(loader){loader.classList.add("done");setTimeout(()=>loader.remove(),500);}boot();},2000);
