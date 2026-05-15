@@ -868,7 +868,7 @@ async function submitComplaint() {
   btn.disabled = true; btn.innerHTML = `<span class="spin">⟳</span> Submitting…`;
   try {
     const fd = new FormData();
-    fd.append("title", title); fd.append("category_id", category);
+    fd.append("title", title); fd.append("category", category);
     fd.append("description", desc); fd.append("location", location);
     if (window._selectedFile) fd.append("image", window._selectedFile);
     const res = await api("complaints", "POST", fd, true);
