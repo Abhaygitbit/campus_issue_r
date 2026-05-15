@@ -1,0 +1,5 @@
+# Pyrefly configuration
+# Points pyrefly to the project's virtual environment so it can
+# resolve all installed packages (Flask, SQLAlchemy, JWT, etc.)
+
+python_interpreter = "/Users/krishnajaiswal/Desktop/Untitled/venv/bin/python"
