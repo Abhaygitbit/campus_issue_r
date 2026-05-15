@@ -527,7 +527,7 @@ function renderApp() {
       <main class="main">
         <header class="topbar">
           <div class="topbar-l">
-            <button class="menu-btn" onclick="toggleSidebar()">☰</button>
+            <button class="menu-btn" onclick="smartToggleSidebar()">☰</button>
             <div><div class="pg-title" id="pg-title">Dashboard</div><div class="pg-crumb">CDGI / <span id="pg-crumb">Campus Portal</span></div></div>
           </div>
           <div class="topbar-r">
@@ -557,7 +557,7 @@ function renderApp() {
     <div class="toasts" id="toasts"></div>
     <div id="chart-tooltip" class="chart-tooltip"></div>`;
 
-  if (localStorage.getItem('cirs_sidebar_collapsed') === 'true') {
+  if (localStorage.getItem('cirs_sidebar_collapsed') === 'true' && window.innerWidth > 640) {
     document.querySelector('.shell').classList.add('collapsed');
   }
 
@@ -566,6 +566,13 @@ function renderApp() {
   document.addEventListener("click", e => { const d = document.getElementById("notif-drop"), b = document.getElementById("notif-btn"); if (d && b && !d.contains(e.target) && !b.contains(e.target)) d.classList.remove("open"); });
 }
 
+function smartToggleSidebar() {
+  if (window.innerWidth <= 640) {
+    toggleSidebar();
+  } else {
+    toggleSidebarCollapse();
+  }
+}
 function toggleSidebar() { document.getElementById("sidebar")?.classList.toggle("open"); document.getElementById("sidebar-overlay")?.classList.toggle("show"); }
 function closeSidebar() { document.getElementById("sidebar")?.classList.remove("open"); document.getElementById("sidebar-overlay")?.classList.remove("show"); }
 
@@ -781,50 +788,55 @@ function renderReport(el) {
   }
   el.innerHTML = `
     <div class="page-header a1"><h1>Report <span>Issue</span></h1><p>Submit a campus complaint — 📧 email confirmation will be sent automatically</p></div>
-    <div style="max-width:720px;">
-      <div class="card a2">
-        <div class="card-head"><span class="card-title">🎫 Complaint Details</span></div>
-        <div class="card-body">
-          <div id="report-alert"></div>
-          <div class="form-group"><label class="label">Issue Title <span class="req">*</span></label><input id="r-title" class="input" placeholder="e.g. Broken light in Lab-2, No water in Hostel Block B"></div>
-          <div class="form-row">
-            <div class="form-group"><label class="label">Category <span class="req">*</span></label>
-              <select id="r-cat" class="select"><option value="">— Loading categories…</option></select>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;max-width:1200px;">
+      <div>
+        <div class="card a2">
+          <div class="card-head"><span class="card-title">🎫 Complaint Details</span></div>
+          <div class="card-body">
+            <div id="report-alert"></div>
+            <div class="form-group"><label class="label">Issue Title <span class="req">*</span></label><input id="r-title" class="input" placeholder="e.g. Broken light in Lab-2, No water in Hostel Block B"></div>
+            <div class="form-row">
+              <div class="form-group"><label class="label">Category <span class="req">*</span></label>
+                <select id="r-cat" class="select"><option value="">— Loading categories…</option></select>
+              </div>
             </div>
-          </div>
-          <div class="form-group"><label class="label">Location / Block</label><input id="r-location" class="input" placeholder="e.g. Main Block, 2nd Floor, Near Lab-204"></div>
-          <div class="form-group"><label class="label">Detailed Description <span class="req">*</span></label><textarea id="r-desc" class="textarea" rows="4" placeholder="Describe the issue in detail…"></textarea></div>
-          <div class="form-group">
-            <label class="label">📸 Before Photo — Evidence of Issue (Optional)</label>
-            <div class="file-zone" id="file-zone" onclick="document.getElementById('r-file').click()">
-              <div class="file-zone-ico">📷</div>
-              <div class="file-zone-txt"><strong>Click to browse</strong> or drag & drop</div>
-              <div class="file-zone-hint">Upload photo/video showing the issue · JPG·PNG·MP4 · max 32MB</div>
+            <div class="form-group"><label class="label">Location / Block</label><input id="r-location" class="input" placeholder="e.g. Main Block, 2nd Floor, Near Lab-204"></div>
+            <div class="form-group"><label class="label">Detailed Description <span class="req">*</span></label><textarea id="r-desc" class="textarea" rows="4" placeholder="Describe the issue in detail…"></textarea></div>
+            <div class="form-group">
+              <label class="label">📸 Before Photo — Evidence of Issue (Optional)</label>
+              <div class="file-zone" id="file-zone" onclick="document.getElementById('r-file').click()">
+                <div class="file-zone-ico">📷</div>
+                <div class="file-zone-txt"><strong>Click to browse</strong> or drag & drop</div>
+                <div class="file-zone-hint">Upload photo/video showing the issue · JPG·PNG·MP4 · max 32MB</div>
+              </div>
+              <input type="file" id="r-file" style="display:none" accept="image/*,video/*,.pdf" onchange="handleFile(event)">
+              <div id="file-preview"></div>
             </div>
-            <input type="file" id="r-file" style="display:none" accept="image/*,video/*,.pdf" onchange="handleFile(event)">
-            <div id="file-preview"></div>
-          </div>
-          <div style="display:flex;gap:10px;margin-top:8px;">
-            <button class="btn btn-primary btn-lg" id="submit-btn" onclick="submitComplaint()" style="flex:1;">🚀 Submit Complaint</button>
-            <button class="btn btn-outline btn-lg" onclick="go(isStaff()?'complaints':'dashboard')">Cancel</button>
+            <div style="display:flex;gap:10px;margin-top:8px;">
+              <button class="btn btn-primary btn-lg" id="submit-btn" onclick="submitComplaint()" style="flex:1;">🚀 Submit Complaint</button>
+              <button class="btn btn-outline btn-lg" onclick="go(isStaff()?'complaints':'dashboard')">Cancel</button>
+            </div>
           </div>
         </div>
       </div>
-      <div class="card a3" style="margin-top:16px;">
-        <div class="card-body">
-          <p class="text-sm" style="color:var(--text-2);margin-bottom:16px;">This system automatically sends updates to your registered email address at each stage of the resolution process.</p>
-          <div class="text-sm" style="display:grid;gap:12px;">
-            <div style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--surface2);border-radius:10px;border-left:4px solid var(--blue);">
-              <span class="text-lg">1️⃣</span><div><strong>You submit complaint</strong><br><span class="text-sm" style="color:var(--text-3);">→ Auto email sent: "Complaint Routed"</span></div>
-            </div>
-            <div style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--surface2);border-radius:10px;border-left:4px solid var(--yellow);">
-              <span class="text-lg">2️⃣</span><div><strong>Assigned to staff</strong><br><span class="text-sm" style="color:var(--text-3);">→ Auto email: "Issue Assigned to You"</span></div>
-            </div>
-            <div style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--surface2);border-radius:10px;border-left:4px solid var(--orange);">
-              <span class="text-lg">3️⃣</span><div><strong>Marked In Progress</strong><br><span class="text-sm" style="color:var(--text-3);">→ Auto email: "Status Update"</span></div>
-            </div>
-            <div style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--surface2);border-radius:10px;border-left:4px solid var(--green);">
-              <span class="text-lg">4️⃣</span><div><strong>Issue Resolved</strong><br><span class="text-sm" style="color:var(--text-3);">→ Auto email: "Issue Resolved" + After photo</span></div>
+      <div>
+        <div class="card a3" style="position:sticky;top:20px;">
+          <div class="card-head"><span class="card-title">📧 Resolution Process</span></div>
+          <div class="card-body">
+            <p class="text-sm" style="color:var(--text-2);margin-bottom:16px;">This system automatically sends updates to your registered email address at each stage of the resolution process.</p>
+            <div class="text-sm" style="display:grid;gap:12px;">
+              <div style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--surface2);border-radius:10px;border-left:4px solid var(--blue);">
+                <span class="text-lg">1️⃣</span><div><strong>You submit complaint</strong><br><span class="text-sm" style="color:var(--text-3);">→ Auto email sent: "Complaint Routed"</span></div>
+              </div>
+              <div style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--surface2);border-radius:10px;border-left:4px solid var(--yellow);">
+                <span class="text-lg">2️⃣</span><div><strong>Assigned to staff</strong><br><span class="text-sm" style="color:var(--text-3);">→ Auto email: "Issue Assigned to You"</span></div>
+              </div>
+              <div style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--surface2);border-radius:10px;border-left:4px solid var(--orange);">
+                <span class="text-lg">3️⃣</span><div><strong>Marked In Progress</strong><br><span class="text-sm" style="color:var(--text-3);">→ Auto email: "Status Update"</span></div>
+              </div>
+              <div style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--surface2);border-radius:10px;border-left:4px solid var(--green);">
+                <span class="text-lg">4️⃣</span><div><strong>Issue Resolved</strong><br><span class="text-sm" style="color:var(--text-3);">→ Auto email: "Issue Resolved" + After photo</span></div>
+              </div>
             </div>
           </div>
         </div>
@@ -868,7 +880,7 @@ async function submitComplaint() {
   btn.disabled = true; btn.innerHTML = `<span class="spin">⟳</span> Submitting…`;
   try {
     const fd = new FormData();
-    fd.append("title", title); fd.append("category_id", category);
+    fd.append("title", title); fd.append("category", category);
     fd.append("description", desc); fd.append("location", location);
     if (window._selectedFile) fd.append("image", window._selectedFile);
     const res = await api("complaints", "POST", fd, true);
