@@ -140,6 +140,50 @@ All tables create themselves automatically!
 
 ---
 
+## 🌐 Deployment on Render
+
+### Steps to Deploy
+
+1. **Push to GitHub**
+   ```bash
+   git init
+   git add .
+   git commit -m "Initial commit"
+   git branch -M main
+   git remote add origin https://github.com/your-username/cirs.git
+   git push -u origin main
+   ```
+
+2. **Create Render Account** → [render.com](https://render.com)
+
+3. **Create PostgreSQL Database** (Recommended for production)
+   - Go to Render Dashboard → Create New → PostgreSQL
+   - Save credentials
+
+4. **Deploy Flask App**
+   - Create New → Web Service
+   - Connect GitHub repository
+   - **Name:** cirs-api
+   - **Runtime:** Python 3.10
+   - **Build Command:** `pip install -r requirements.txt`
+   - **Start Command:** `gunicorn -w 4 -b 0.0.0.0:$PORT backend.app:app`
+
+5. **Environment Variables** (in Render Dashboard)
+   ```
+   RENDER=true
+   RENDER_EXTERNAL_URL=https://your-app-name.onrender.com
+   JWT_SECRET=change-this-to-random-string
+   DB_HOST=your-db-host.c.render.com
+   DB_NAME=your_db_name
+   DB_USER=your_db_user
+   DB_PASSWORD=your_db_password
+   USE_SQLITE=false
+   ```
+
+6. **Deploy** - Click "Deploy" and wait 2-3 minutes ✅
+
+---
+
 ## 🔐 Security Features
 
 - ✅ Passwords hashed with **bcrypt** (never stored plain)
