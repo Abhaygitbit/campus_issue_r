@@ -483,21 +483,18 @@ function renderApp() {
     <div class="shell">
       <aside class="sidebar" id="sidebar">
         <div class="sidebar-head">
-          <div class="sidebar-brand" onclick="window.location.href='/'" style="cursor: pointer;" title="Go to Dashboard">
+          <div class="sidebar-brand">
             <div class="sidebar-cdgi-logo">
               <img src="images/logo.jpg" alt="CDGI logo">
             </div>
             <div class="sidebar-brand-text"><div class="s-name">CDGI · CIRS</div><div class="s-sub">Campus Portal </div></div>
           </div>
-          <button class="sidebar-collapse-btn" onclick="toggleSidebarCollapse()" title="Collapse Sidebar">
-            <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
-          </button>
         </div>
         <nav class="nav">
           ${staffLimited ? `
           <div><div class="nav-section-label">My Work</div>
             <button class="nav-item active" data-s="dashboard" onclick="go('dashboard')"><span class="nav-icon">📊</span> Dashboard</button>
-            <button class="nav-item" data-s="complaints" onclick="go('complaints')"><span class="nav-icon">📋</span> My Assigned Issues</button>
+            <button class="nav-item" data-s="complaints" onclick="go('complaints')"><span class="nav-icon">🛠️</span> My Assigned Issues</button>
           </div>
           <div><div class="nav-section-label">Account</div>
             <button class="nav-item" data-s="profile" onclick="go('profile')"><span class="nav-icon">👤</span> Profile</button>
@@ -784,43 +781,36 @@ function renderReport(el) {
   }
   el.innerHTML = `
     <div class="page-header a1"><h1>Report <span>Issue</span></h1><p>Submit a campus complaint — 📧 email confirmation will be sent automatically</p></div>
-    <div style="display: flex; gap: 24px; align-items: flex-start; flex-wrap: wrap;">
-      
-      <!-- Left Column: Form -->
-      <div style="flex: 1; min-width: 320px; max-width: 720px;">
-        <div class="card a2">
-          <div class="card-head"><span class="card-title">🎫 Complaint Details</span></div>
-          <div class="card-body">
-            <div id="report-alert"></div>
-            <div class="form-group"><label class="label">Issue Title <span class="req">*</span></label><input id="r-title" class="input" placeholder="e.g. Broken light in Lab-2, No water in Hostel Block B"></div>
-            <div class="form-row">
-              <div class="form-group"><label class="label">Category <span class="req">*</span></label>
-                <select id="r-cat" class="select"><option value="">— Loading categories…</option></select>
-              </div>
+    <div style="max-width:720px;">
+      <div class="card a2">
+        <div class="card-head"><span class="card-title">🎫 Complaint Details</span></div>
+        <div class="card-body">
+          <div id="report-alert"></div>
+          <div class="form-group"><label class="label">Issue Title <span class="req">*</span></label><input id="r-title" class="input" placeholder="e.g. Broken light in Lab-2, No water in Hostel Block B"></div>
+          <div class="form-row">
+            <div class="form-group"><label class="label">Category <span class="req">*</span></label>
+              <select id="r-cat" class="select"><option value="">— Loading categories…</option></select>
             </div>
-            <div class="form-group"><label class="label">Location / Block</label><input id="r-location" class="input" placeholder="e.g. Main Block, 2nd Floor, Near Lab-204"></div>
-            <div class="form-group"><label class="label">Detailed Description <span class="req">*</span></label><textarea id="r-desc" class="textarea" rows="4" placeholder="Describe the issue in detail…"></textarea></div>
-            <div class="form-group">
-              <label class="label">📸 Before Photo — Evidence of Issue (Optional)</label>
-              <div class="file-zone" id="file-zone" onclick="document.getElementById('r-file').click()">
-                <div class="file-zone-ico">📷</div>
-                <div class="file-zone-txt"><strong>Click to browse</strong> or drag & drop</div>
-                <div class="file-zone-hint">Upload photo/video showing the issue · JPG·PNG·MP4 · max 32MB</div>
-              </div>
-              <input type="file" id="r-file" style="display:none" accept="image/*,video/*,.pdf" onchange="handleFile(event)">
-              <div id="file-preview"></div>
+          </div>
+          <div class="form-group"><label class="label">Location / Block</label><input id="r-location" class="input" placeholder="e.g. Main Block, 2nd Floor, Near Lab-204"></div>
+          <div class="form-group"><label class="label">Detailed Description <span class="req">*</span></label><textarea id="r-desc" class="textarea" rows="4" placeholder="Describe the issue in detail…"></textarea></div>
+          <div class="form-group">
+            <label class="label">📸 Before Photo — Evidence of Issue (Optional)</label>
+            <div class="file-zone" id="file-zone" onclick="document.getElementById('r-file').click()">
+              <div class="file-zone-ico">📷</div>
+              <div class="file-zone-txt"><strong>Click to browse</strong> or drag & drop</div>
+              <div class="file-zone-hint">Upload photo/video showing the issue · JPG·PNG·MP4 · max 32MB</div>
             </div>
-            <div style="display:flex;gap:10px;margin-top:8px;">
-              <button class="btn btn-primary btn-lg" id="submit-btn" onclick="submitComplaint()" style="flex:1;">🚀 Submit Complaint</button>
-              <button class="btn btn-outline btn-lg" onclick="go(isStaff()?'complaints':'dashboard')">Cancel</button>
-            </div>
+            <input type="file" id="r-file" style="display:none" accept="image/*,video/*,.pdf" onchange="handleFile(event)">
+            <div id="file-preview"></div>
+          </div>
+          <div style="display:flex;gap:10px;margin-top:8px;">
+            <button class="btn btn-primary btn-lg" id="submit-btn" onclick="submitComplaint()" style="flex:1;">🚀 Submit Complaint</button>
+            <button class="btn btn-outline btn-lg" onclick="go(isStaff()?'complaints':'dashboard')">Cancel</button>
           </div>
         </div>
       </div>
-      
-      <!-- Right Column: Email Flow -->
-      <div class="card a3" style="width: 380px; flex-shrink: 0; position: sticky; top: 80px;">
-        <div class="card-head"><span class="card-title">📧 Email Notification Flow</span></div>
+      <div class="card a3" style="margin-top:16px;">
         <div class="card-body">
           <p class="text-sm" style="color:var(--text-2);margin-bottom:16px;">This system automatically sends updates to your registered email address at each stage of the resolution process.</p>
           <div class="text-sm" style="display:grid;gap:12px;">
@@ -839,7 +829,6 @@ function renderReport(el) {
           </div>
         </div>
       </div>
-      
     </div>`;
   loadCategories();
   const zone = document.getElementById("file-zone");
