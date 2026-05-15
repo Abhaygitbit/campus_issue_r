@@ -77,6 +77,7 @@ class User(db.Model):
     dept=db.Column(db.String(100),default="CSE")
     roll_no=db.Column(db.String(50))
     phone=db.Column(db.String(20))
+    profile_image=db.Column(db.String(300))
     is_verified=db.Column(db.Boolean,default=False)
     verify_token=db.Column(db.String(100))
     verify_expires=db.Column(db.DateTime)
@@ -85,7 +86,7 @@ class User(db.Model):
     assigned_complaints=db.relationship("Complaint",backref="assigned_staff",lazy=True,foreign_keys="Complaint.assigned_staff_id")
     def to_dict(self):
         return {"id":self.id,"name":self.name,"email":self.email,"role":self.role,"dept":self.dept,
-                "roll_no":self.roll_no or "","phone":self.phone or "","is_verified":self.is_verified,
+                "roll_no":self.roll_no or "","phone":self.phone or "","profile_image":self.profile_image or "","is_verified":self.is_verified,
                 "created_at":self.created_at.strftime("%Y-%m-%d") if self.created_at else ""}
 
 class Complaint(db.Model):
@@ -402,6 +403,20 @@ def update_profile():
         if len(data["password"])<6: return jsonify({"error":"Password min 6 chars"}),400
         user.password=generate_password_hash(data["password"])
     db.session.commit(); return jsonify({"status":"success","user":user.to_dict()})
+
+@app.route("/api/profile/image",methods=["POST"])
+@jwt_required()
+def upload_profile_image():
+    user=db.session.get(User,int(get_jwt_identity()))
+    if not user: return jsonify({"error":"Not found"}),404
+    if "image" not in request.files: return jsonify({"error":"No image provided"}),400
+    f=request.files["image"]
+    if not f.filename: return jsonify({"error":"No file selected"}),400
+    img_path=save_upload(f,prefix="profile",image_only=True)
+    if not img_path: return jsonify({"error":"Invalid file type. Use jpg, png, gif, webp"}),400
+    user.profile_image=img_path
+    db.session.commit()
+    return jsonify({"status":"success","user":user.to_dict()})
 
 @app.route("/api/categories", methods=["GET"])
 @jwt_required()
