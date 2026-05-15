@@ -6,7 +6,9 @@
  * - Before/After photos
  * - Enhanced email notifications
  */
-const BACKEND = `http://localhost:5002`;
+const BACKEND = window.location.hostname === 'localhost' 
+  ? `http://localhost:5002` 
+  : `https://${window.location.host}`;
 const API = `${BACKEND}/api`;
 const imgUrl = (path) => (path && path.startsWith("/uploads/")) ? `${BACKEND}${path}` : (path || "");
 let token = localStorage.getItem("cirs_token") || null;
