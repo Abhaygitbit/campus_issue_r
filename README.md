@@ -8,10 +8,7 @@
 ## 📁 Project Structure
 
 ```
-cirs-project/
-│
-├── 🟢 START_WINDOWS.bat        ← Double-click to run on Windows
-├── 🟢 START_MAC_LINUX.sh       ← Run on Mac/Linux
+cirs-project
 │
 ├── backend/
 │   ├── app.py                  ← Python Flask API (main server)
@@ -36,28 +33,6 @@ cirs-project/
 
 ---
 
-### ▶️ Windows
-
-1. Extract the ZIP/RAR folder
-2. **Double-click** `START_WINDOWS.bat`
-3. Wait for packages to install (first time only)
-4. Browser opens at **http://localhost:5000**
-
----
-
-### ▶️ Mac / Linux
-
-1. Extract the folder
-2. Open Terminal in the project folder
-3. Run:
-```bash
-chmod +x START_MAC_LINUX.sh
-./START_MAC_LINUX.sh
-```
-4. Open **http://localhost:5000** in your browser
-
----
-
 ### ▶️ Manual Start (Any OS)
 
 ```bash
@@ -65,15 +40,7 @@ chmod +x START_MAC_LINUX.sh
 cd backend
 
 # 2. Install packages (only needed once)
-pip install -r requirements.txt
 
-# 3. Start the server
-python app.py
-```
-
-Open http://localhost:5000 in your browser.
-
----
 
 
 
@@ -105,17 +72,6 @@ python app.py
 All tables create themselves automatically!
 
 ---
-
-## 🌐 Deploy Online (Free Hosting Options)
-
-
-### Option B: Render.com (Free)
-1. Push code to GitHub
-2. Go to https://render.com
-3. New → Web Service → connect your GitHub repo
-4. Build command: `pip install -r requirements.txt`
-5. Start command: `python app.py`
-
 
 ---
 
