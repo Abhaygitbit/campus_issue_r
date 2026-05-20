@@ -47,6 +47,14 @@ cd backend
 > The database starts **empty**. The admin account is the only pre-created user.
 > Register new accounts using the **Create Account** button.
 
+### 🌐 Frontend Backend URL (Production)
+- Local development uses `http://localhost:5002`.
+- Production uses the same origin automatically.
+- If frontend and backend are on different domains, set this before loading `js/app.js`:
+```html
+<script>window.CIRS_BACKEND_URL = "https://your-backend-domain.com";</script>
+```
+
 ---
 
 ## 🗄️ Database (SQLite — Zero Config!)
