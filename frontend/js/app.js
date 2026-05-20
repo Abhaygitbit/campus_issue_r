@@ -6,7 +6,11 @@
  * - Before/After photos
  * - Enhanced email notifications
  */
-const BACKEND = `http://localhost:5002`;
+const BACKEND = window.CIRS_BACKEND_URL || (
+  ["localhost", "127.0.0.1"].includes(window.location.hostname)
+    ? "http://localhost:5002"
+    : window.location.origin
+);
 const API = `${BACKEND}/api`;
 const imgUrl = (path) => (path && path.startsWith("/uploads/")) ? `${BACKEND}${path}` : (path || "");
 let token = localStorage.getItem("cirs_token") || null;
@@ -1642,4 +1646,3 @@ function serverDownBanner() { return `<div class="card" style="padding:52px;text
 window.addEventListener("DOMContentLoaded", () => {
   setTimeout(() => { const loader = document.getElementById("loader"); if (loader) { loader.classList.add("done"); setTimeout(() => loader.remove(), 500); } boot(); }, 2000);
 });
-
